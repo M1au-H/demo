@@ -275,7 +275,8 @@ export default defineComponent({
 
       const error = Object.values(store.errors);
 
-      if (!error) {
+   if (error.length === 0) {
+
         Swal.fire({
           text: "You have successfully logged in!",
           icon: "success",
