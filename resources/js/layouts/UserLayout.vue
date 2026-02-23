@@ -28,14 +28,24 @@
                   data-kt-menu-attach="parent"
                   data-kt-menu-placement="bottom-end"
                 >
-                  <img :src="getAssetPath('media/avatars/300-1.jpg')" alt="user" />
+                  <!--begin::Avatar navbar-->
+                  <img v-if="authStore.user.avatar" :src="avatarUrl" alt="user" class="rounded-circle object-fit-cover" />
+                  <div v-else class="symbol-label fw-bold bg-primary text-white fs-6">
+                    {{ authStore.user.name ? authStore.user.name.charAt(0).toUpperCase() : 'U' }}
+                  </div>
+                  <!--end::Avatar navbar-->
                 </div>
                 <!-- Dropdown user -->
                 <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-color fw-semibold py-4 fs-6 w-275px" data-kt-menu="true">
                   <div class="menu-item px-3">
                     <div class="menu-content d-flex align-items-center px-3">
                       <div class="symbol symbol-50px me-5">
-                        <img :src="getAssetPath('media/avatars/300-1.jpg')" alt="user" />
+                        <!--begin::Avatar dropdown-->
+                        <img v-if="authStore.user.avatar" :src="avatarUrl" alt="user" class="rounded-circle object-fit-cover" />
+                        <div v-else class="symbol-label fw-bold bg-primary text-white fs-4">
+                          {{ authStore.user.name ? authStore.user.name.charAt(0).toUpperCase() : 'U' }}
+                        </div>
+                        <!--end::Avatar dropdown-->
                       </div>
                       <div class="d-flex flex-column">
                         <div class="fw-bold d-flex align-items-center fs-5">
@@ -106,15 +116,12 @@
                   <template v-for="(menuItem, j) in item.pages" :key="j">
                     <div class="menu-item">
                       <router-link class="menu-link" active-class="active" :to="menuItem.route">
-                        <span class="menu-icon">
-                          <KTIcon :icon-name="menuItem.keenthemesIcon" icon-class="fs-2" />
-                        </span>
+                        <span class="menu-icon"><KTIcon :icon-name="menuItem.keenthemesIcon" icon-class="fs-2" /></span>
                         <span class="menu-title">{{ menuItem.heading }}</span>
                       </router-link>
                     </div>
                   </template>
                 </template>
-
                 <!-- Logout -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
@@ -123,9 +130,7 @@
                 </div>
                 <div class="menu-item">
                   <a class="menu-link cursor-pointer" @click="onLogout">
-                    <span class="menu-icon">
-                      <KTIcon icon-name="exit-right" icon-class="fs-2" />
-                    </span>
+                    <span class="menu-icon"><KTIcon icon-name="exit-right" icon-class="fs-2" /></span>
                     <span class="menu-title">Sign Out</span>
                   </a>
                 </div>
@@ -175,6 +180,7 @@ import { useRoute, useRouter } from "vue-router";
 import { getAssetPath } from "@/core/helpers/assets";
 import { useAuthStore } from "@/stores/auth";
 import { reinitializeComponents } from "@/core/plugins/keenthemes";
+import LayoutService from "@/core/services/LayoutService";
 import UserMenuConfig from "@/layouts/default-layout/config/UserMenuConfig";
 
 export default defineComponent({
@@ -186,32 +192,31 @@ export default defineComponent({
     const sidebarRef = ref<HTMLElement | null>(null);
     const currentYear = new Date().getFullYear();
 
-    const currentPageTitle = computed(() => {
-      return route.meta.pageTitle || "Dashboard";
+    const currentPageTitle = computed(() => route.meta.pageTitle || "Dashboard");
+
+    const avatarUrl = computed(() => {
+      if (!authStore.user.avatar) return null;
+      return `${import.meta.env.VITE_APP_API_URL?.replace('/api', '')}/storage/${authStore.user.avatar}`;
     });
 
     onMounted(() => {
+      LayoutService.init();
       nextTick(() => { reinitializeComponents(); });
     });
 
     watch(() => route.path, () => {
-      nextTick(() => { reinitializeComponents(); });
+      nextTick(() => {
+        LayoutService.init();
+        reinitializeComponents();
+      });
     });
 
     const onLogout = () => {
       authStore.logout();
-      router.push({ name: "user-sign-in" });
+      router.push({ name: "sign-in" });
     };
 
-    return {
-      getAssetPath,
-      authStore,
-      UserMenuConfig,
-      currentPageTitle,
-      currentYear,
-      sidebarRef,
-      onLogout,
-    };
+    return { getAssetPath, authStore, avatarUrl, UserMenuConfig, currentPageTitle, currentYear, sidebarRef, onLogout };
   },
 });
 </script>

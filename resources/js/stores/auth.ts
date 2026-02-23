@@ -39,14 +39,12 @@ export const useAuthStore = defineStore("auth", () => {
     JwtService.destroyToken();
   }
 
-  // Login user biasa
   function login(credentials: { email: string; password: string }) {
     return ApiService.post("login", credentials)
       .then(({ data }) => { setAuth(data); })
       .catch(({ response }) => { setError(response.data.errors); });
   }
 
-  // Login admin
   function adminLogin(credentials: { email: string; password: string }) {
     return ApiService.post("admin/login", credentials)
       .then(({ data }) => { setAuth(data); })
@@ -70,6 +68,22 @@ export const useAuthStore = defineStore("auth", () => {
         errors.value = {};
       })
       .catch(({ response }) => { setError(response.data.errors); });
+  }
+
+  function uploadAvatar(file: File) {
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    return ApiService.post("profile/avatar", formData)
+      .then(({ data }) => {
+        user.value = data.user;
+        errors.value = {};
+        return data;
+      })
+      .catch(({ response }) => {
+        setError(response.data.errors);
+        throw response;
+      });
   }
 
   function verifyAuth() {
@@ -103,6 +117,7 @@ export const useAuthStore = defineStore("auth", () => {
     logout,
     register,
     updateProfile,
+    uploadAvatar,
     verifyAuth,
     isAdmin,
     isUser,

@@ -5,11 +5,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    // Login untuk USER biasa
     public function login(Request $request)
     {
         $request->validate([
@@ -23,18 +23,12 @@ class AuthController extends Controller
             return response()->json(['errors' => ['login' => 'Email atau password salah']], 401);
         }
 
-        // Cek role - hanya user biasa yang bisa login di sini
-        if ($user->role === 'admin') {
-            return response()->json(['errors' => ['login' => 'Akun admin tidak bisa login di sini']], 403);
-        }
-
         $user->api_token = Str::random(60);
         $user->save();
 
         return response()->json($user);
     }
 
-    // Login khusus ADMIN
     public function adminLogin(Request $request)
     {
         $request->validate([
@@ -48,7 +42,6 @@ class AuthController extends Controller
             return response()->json(['errors' => ['login' => 'Email atau password salah']], 401);
         }
 
-        // Cek role - hanya admin yang bisa login di sini
         if ($user->role !== 'admin') {
             return response()->json(['errors' => ['login' => 'Akun ini bukan admin']], 403);
         }
@@ -100,7 +93,7 @@ class AuthController extends Controller
             'email'     => $request->email,
             'password'  => Hash::make($request->password),
             'api_token' => Str::random(60),
-            'role'      => 'user', // register selalu jadi user
+            'role'      => 'user',
         ]);
 
         return response()->json($user);
@@ -131,5 +124,41 @@ class AuthController extends Controller
         $user->update($request->only(['name', 'phone', 'bio', 'job_title', 'company']));
 
         return response()->json($user);
+    }
+
+    public function uploadAvatar(Request $request)
+    {
+        $header = $request->header('Authorization');
+        if (!$header) {
+            return response()->json(['errors' => ['auth' => 'Unauthorized']], 401);
+        }
+
+        $token = str_replace('Token ', '', $header);
+        $user = User::where('api_token', $token)->first();
+
+        if (!$user) {
+            return response()->json(['errors' => ['auth' => 'Unauthorized']], 401);
+        }
+
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+
+        // Hapus avatar lama jika ada
+        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+
+        // Simpan avatar baru
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $user->avatar = $path;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Avatar berhasil diupload',
+            'avatar'  => $user->avatar,
+            'avatar_url' => asset('storage/' . $user->avatar),
+            'user'    => $user,
+        ]);
     }
 }

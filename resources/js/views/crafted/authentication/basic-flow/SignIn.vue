@@ -202,8 +202,12 @@ export default defineComponent({
         submitButton.value.setAttribute("data-kt-indicator", "on");
       }
 
-      // Send login request
-      await store.login(values);
+      // Send login request - coba admin dulu, kalau gagal coba user biasa
+await store.adminLogin(values);
+if (Object.values(store.errors).length > 0) {
+  store.errors = {};
+  await store.login(values);
+}
       const error = Object.values(store.errors);
 
       if (error.length === 0) {
@@ -216,9 +220,15 @@ export default defineComponent({
           customClass: {
             confirmButton: "btn fw-semibold btn-light-primary",
           },
-        }).then(() => {
-          // Go to page after successfully login
-          router.push({ name: "dashboard" });
+        })   
+        
+                .then(() => {
+          if (store.isAdmin()) {
+            router.push({ name: "dashboard" });
+          } else {
+            router.push({ name: "user-dashboard" });
+          }
+
         });
       } else {
         Swal.fire({

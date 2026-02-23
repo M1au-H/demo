@@ -54,12 +54,47 @@
             <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
           </span>
         </button>
+
+        <div class="text-center text-muted text-uppercase fw-bold mb-5">atau</div>
+
+        <a
+          href="#"
+          class="btn btn-flex flex-center btn-light btn-lg w-100 mb-5"
+        >
+          <img
+            alt="Logo"
+            :src="getAssetPath('media/svg/brand-logos/google-icon.svg')"
+            class="h-20px me-3"
+          />
+          Masuk dengan Google
+        </a>
+
+        <a
+          href="#"
+          class="btn btn-flex flex-center btn-light btn-lg w-100 mb-5"
+        >
+          <img
+            alt="Logo"
+            :src="getAssetPath('media/svg/brand-logos/facebook-4.svg')"
+            class="h-20px me-3"
+          />
+          Masuk dengan Facebook
+        </a>
+
+        <a href="#" class="btn btn-flex flex-center btn-light btn-lg w-100">
+          <img
+            alt="Logo"
+            :src="getAssetPath('media/svg/brand-logos/apple-black.svg')"
+            class="h-20px me-3"
+          />
+          Masuk dengan Apple
+        </a>
       </div>
     </VForm>
   </div>
 </template>
-
 <script lang="ts">
+import { getAssetPath } from "@/core/helpers/assets";
 import { defineComponent, ref } from "vue";
 import { ErrorMessage, Field, Form as VForm } from "vee-validate";
 import { useAuthStore } from "@/stores/auth";
@@ -117,7 +152,7 @@ export default defineComponent({
       submitButton.value!.disabled = false;
     };
 
-    return { onSubmitLogin, loginSchema, submitButton };
+    return { onSubmitLogin, loginSchema, submitButton, getAssetPath };
   },
 });
 </script>

@@ -403,7 +403,7 @@ router.beforeEach((to, from, next) => {
       // Admin coba akses user area → redirect ke admin dashboard
       next({ name: "dashboard" });
     } else {
-      next({ name: "user-sign-in" });
+      next({ name: "sign-in" });
     }
   }
   else {
