@@ -5,10 +5,15 @@ import JwtService from "@/core/services/JwtService";
 
 export interface User {
   name: string;
-  surname: string;
   email: string;
   password: string;
   api_token: string;
+  role: string;
+  phone?: string;
+  avatar?: string;
+  bio?: string;
+  job_title?: string;
+  company?: string;
 }
 
 export const useAuthStore = defineStore("auth", () => {
@@ -34,14 +39,18 @@ export const useAuthStore = defineStore("auth", () => {
     JwtService.destroyToken();
   }
 
-  function login(credentials: User) {
+  // Login user biasa
+  function login(credentials: { email: string; password: string }) {
     return ApiService.post("login", credentials)
-      .then(({ data }) => {
-        setAuth(data);
-      })
-      .catch(({ response }) => {
-        setError(response.data.errors);
-      });
+      .then(({ data }) => { setAuth(data); })
+      .catch(({ response }) => { setError(response.data.errors); });
+  }
+
+  // Login admin
+  function adminLogin(credentials: { email: string; password: string }) {
+    return ApiService.post("admin/login", credentials)
+      .then(({ data }) => { setAuth(data); })
+      .catch(({ response }) => { setError(response.data.errors); });
   }
 
   function logout() {
@@ -50,31 +59,24 @@ export const useAuthStore = defineStore("auth", () => {
 
   function register(credentials: User) {
     return ApiService.post("register", credentials)
-      .then(({ data }) => {
-        setAuth(data);
-      })
-      .catch(({ response }) => {
-        setError(response.data.errors);
-      });
+      .then(({ data }) => { setAuth(data); })
+      .catch(({ response }) => { setError(response.data.errors); });
   }
 
-  function forgotPassword(email: string) {
-    return ApiService.post("forgot_password", email)
-      .then(() => {
-        setError({});
+  function updateProfile(profileData: Partial<User>) {
+    return ApiService.post("profile/update", profileData)
+      .then(({ data }) => {
+        user.value = data;
+        errors.value = {};
       })
-      .catch(({ response }) => {
-        setError(response.data.errors);
-      });
+      .catch(({ response }) => { setError(response.data.errors); });
   }
 
   function verifyAuth() {
     if (JwtService.getToken()) {
       ApiService.setHeader();
       ApiService.post("verify_token", { api_token: JwtService.getToken() })
-        .then(({ data }) => {
-          setAuth(data);
-        })
+        .then(({ data }) => { setAuth(data); })
         .catch(({ response }) => {
           setError(response.data.errors);
           purgeAuth();
@@ -84,14 +86,25 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
+  function isAdmin() {
+    return user.value.role === "admin";
+  }
+
+  function isUser() {
+    return user.value.role === "user";
+  }
+
   return {
     errors,
     user,
     isAuthenticated,
     login,
+    adminLogin,
     logout,
     register,
-    forgotPassword,
+    updateProfile,
     verifyAuth,
+    isAdmin,
+    isUser,
   };
 });
