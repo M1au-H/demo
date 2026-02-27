@@ -21,18 +21,63 @@ class User extends Authenticatable
         'bio',
         'job_title',
         'company',
+        'position_id',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        // api_token TIDAK di-hide agar frontend bisa terima token setelah login
     ];
 
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            // 'password' => 'hashed', ← dihapus karena menyebabkan double hashing
         ];
     }
+
+    // ── Relasi ──
+
+    public function position()
+    {
+        return $this->belongsTo(Position::class);
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function performanceReviews()
+    {
+        return $this->hasMany(PerformanceReview::class);
+    }
+
+    public function sanctions()
+    {
+        return $this->hasMany(Sanction::class);
+    }
+
+    public function additionalTasks()
+    {
+        return $this->hasMany(AdditionalTask::class);
+    }
+
+    // ── Helper ──
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isUser(): bool
+    {
+        return $this->role === 'user';
+    }
+
+    public function leaves() 
+    { return $this->hasMany(Leave::class); }
+
+public function notifications() 
+{ return $this->hasMany(Notification::class); }
 }

@@ -70,42 +70,57 @@
                 <button
                   class="ul-icon-btn"
                   :class="{ 'ul-icon-btn-active': showNotif }"
-                  @click.stop="showNotif = !showNotif"
+                  @click.stop="toggleNotif"
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                  <span v-if="unreadCount > 0" class="ul-badge">{{ unreadCount }}</span>
+                  <span v-if="unreadCount > 0" class="ul-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
                 </button>
                 <transition name="ul-pop">
                   <div v-if="showNotif" class="ul-notif-panel" @click.stop>
                     <div class="ul-panel-head">
                       <div>
                         <p class="ul-panel-title">Notifications</p>
-                        <p class="ul-panel-sub">{{ unreadCount }} unread</p>
+                        <p class="ul-panel-sub">{{ unreadCount }} belum dibaca</p>
                       </div>
-                      <button class="ul-mark-btn" @click="markAllRead">Mark all read</button>
+                      <button v-if="unreadCount > 0" class="ul-mark-btn" @click="markAllRead">Tandai semua dibaca</button>
                     </div>
-                    <div class="ul-notif-list">
+
+                    <!-- Loading -->
+                    <div v-if="notifLoading" class="ul-notif-empty">
+                      <span class="spinner-border spinner-border-sm me-2"></span> Memuat...
+                    </div>
+
+                    <!-- Empty -->
+                    <div v-else-if="notifications.length === 0" class="ul-notif-empty">
+                      <div style="font-size:28px;margin-bottom:6px">🔔</div>
+                      <p>Tidak ada notifikasi</p>
+                    </div>
+
+                    <!-- List -->
+                    <div v-else class="ul-notif-list">
                       <div
                         v-for="n in notifications"
                         :key="n.id"
                         class="ul-notif-row"
-                        :class="{ 'ul-notif-unread': !n.read }"
-                        @click="n.read = true"
+                        :class="{ 'ul-notif-unread': !n.is_read }"
+                        @click="markRead(n)"
                       >
-                        <span class="ul-notif-dot-icon" :style="{ background: n.color + '20', color: n.color }" v-html="n.svg"></span>
+                        <span class="ul-notif-dot-icon" :style="notifIconStyle(n.type)">
+                          {{ notifIcon(n.type) }}
+                        </span>
                         <div class="ul-notif-body">
                           <p class="ul-notif-title">{{ n.title }}</p>
-                          <p class="ul-notif-desc">{{ n.desc }}</p>
-                          <p class="ul-notif-time">{{ n.time }}</p>
+                          <p class="ul-notif-desc">{{ n.message }}</p>
+                          <p class="ul-notif-time">{{ timeAgo(n.created_at) }}</p>
                         </div>
-                        <span v-if="!n.read" class="ul-unread-dot"></span>
+                        <span v-if="!n.is_read" class="ul-unread-dot"></span>
                       </div>
                     </div>
+
                     <div class="ul-panel-foot">
-                      <router-link to="/user/settings?tab=notifications" class="ul-view-all" @click="showNotif = false">
-                        Notification settings
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                      </router-link>
+                      <span class="ul-view-all" style="cursor:default;color:#505050">
+                        HR Notification System
+                      </span>
                     </div>
                   </div>
                 </transition>
@@ -197,9 +212,7 @@
             >
               <div id="#kt_app_sidebar_menu" class="menu menu-column menu-rounded menu-sub-indention px-3" data-kt-menu="true">
 
-                <!-- ══ NAVIGATION — hanya satu sumber, tidak double ══ -->
-
-                <!-- Dashboard -->
+                <!-- ══ MAIN ══ -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Main</span>
@@ -212,22 +225,63 @@
                   </router-link>
                 </div>
 
-                <!-- ACCOUNT -->
+                <!-- ══ ABSENSI ══ -->
+                <div class="menu-item pt-5">
+                  <div class="menu-content">
+                    <span class="menu-heading fw-bold text-uppercase fs-7">Absensi</span>
+                  </div>
+                </div>
+                <div class="menu-item">
+                  <router-link class="menu-link" active-class="active" to="/user/attendance/check-in">
+                    <span class="menu-icon"><KTIcon icon-name="entrance-right" icon-class="fs-2" /></span>
+                    <span class="menu-title">Absen Masuk</span>
+                  </router-link>
+                </div>
+                <div class="menu-item">
+                  <router-link class="menu-link" active-class="active" to="/user/attendance/check-out">
+                    <span class="menu-icon"><KTIcon icon-name="exit-right" icon-class="fs-2" /></span>
+                    <span class="menu-title">Absen Pulang</span>
+                  </router-link>
+                </div>
+                <div class="menu-item">
+                  <router-link class="menu-link" active-class="active" to="/user/attendance/history">
+                    <span class="menu-icon"><KTIcon icon-name="calendar-8" icon-class="fs-2" /></span>
+                    <span class="menu-title">Riwayat Absensi</span>
+                  </router-link>
+                </div>
+                <!-- ✅ Izin & Cuti -->
+                <div class="menu-item">
+                  <router-link class="menu-link" active-class="active" to="/user/attendance/leave">
+                    <span class="menu-icon"><KTIcon icon-name="document" icon-class="fs-2" /></span>
+                    <span class="menu-title">Izin & Cuti</span>
+                  </router-link>
+                </div>
+
+                <!-- ══ PERFORMA ══ -->
+                <div class="menu-item pt-5">
+                  <div class="menu-content">
+                    <span class="menu-heading fw-bold text-uppercase fs-7">Performa</span>
+                  </div>
+                </div>
+                <div class="menu-item">
+                  <router-link class="menu-link" active-class="active" to="/user/performance">
+                    <span class="menu-icon"><KTIcon icon-name="star" icon-class="fs-2" /></span>
+                    <span class="menu-title">Performa Saya</span>
+                  </router-link>
+                </div>
+
+                <!-- ══ ACCOUNT ══ -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Account</span>
                   </div>
                 </div>
-
-                <!-- My Profile -->
                 <div class="menu-item">
                   <router-link class="menu-link" active-class="active" to="/user/profile">
                     <span class="menu-icon"><KTIcon icon-name="profile-circle" icon-class="fs-2" /></span>
                     <span class="menu-title">My Profile</span>
                   </router-link>
                 </div>
-
-               <!-- Settings -->
                 <div class="menu-item">
                   <router-link class="menu-link" active-class="active" to="/user/settings">
                     <span class="menu-icon"><KTIcon icon-name="setting-2" icon-class="fs-2" /></span>
@@ -235,7 +289,7 @@
                   </router-link>
                 </div>
 
-                <!-- Sign Out -->
+                <!-- ══ SESSION ══ -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Session</span>
@@ -284,23 +338,27 @@ import { getAssetPath } from "@/core/helpers/assets";
 import { useAuthStore } from "@/stores/auth";
 import { reinitializeComponents } from "@/core/plugins/keenthemes";
 import LayoutService from "@/core/services/LayoutService";
+import ApiService from "@/core/services/ApiService";
 
-interface Notif { id: number; title: string; desc: string; time: string; read: boolean; svg: string; color: string; }
 interface SearchResult { title: string; desc: string; route: string; svgIcon: string; }
 
 const SEARCH_PAGES: SearchResult[] = [
   { title: "Dashboard", desc: "Account overview & activity", route: "/user/dashboard",
     svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>` },
+  { title: "Absen Masuk", desc: "Absensi masuk harian", route: "/user/attendance/check-in",
+    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>` },
+  { title: "Absen Pulang", desc: "Absensi pulang harian", route: "/user/attendance/check-out",
+    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>` },
+  { title: "Riwayat Absensi", desc: "Histori kehadiran kamu", route: "/user/attendance/history",
+    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>` },
+  { title: "Izin & Cuti", desc: "Ajukan izin atau cuti", route: "/user/attendance/leave",
+    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>` },
+  { title: "Performa Saya", desc: "Penilaian, sanksi & tugas dari admin", route: "/user/performance",
+    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>` },
   { title: "My Profile", desc: "Edit personal information", route: "/user/profile",
     svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>` },
-  { title: "Change Password", desc: "Update your password", route: "/user/settings?tab=password",
-    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>` },
-  { title: "Two-Factor Auth", desc: "Enhance account security with 2FA", route: "/user/settings?tab=2fa",
-    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>` },
-  { title: "Recovery Email", desc: "Set a backup email address", route: "/user/settings?tab=recovery",
-    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>` },
-  { title: "Notification Settings", desc: "Manage alerts & preferences", route: "/user/settings?tab=notifications",
-    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>` },
+  { title: "Settings", desc: "Update your preferences", route: "/user/settings",
+    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>` },
 ];
 
 export default defineComponent({
@@ -317,8 +375,6 @@ export default defineComponent({
       if (!authStore.user.avatar) return null;
       return `${import.meta.env.VITE_APP_API_URL?.replace('/api', '')}/storage/${authStore.user.avatar}`;
     });
-
-    const isSettingsActive = computed(() => route.path.includes('/user/settings'));
 
     // ── Search ──
     const searchQuery = ref("");
@@ -339,19 +395,66 @@ export default defineComponent({
       query ? router.push({ path, query: Object.fromEntries(new URLSearchParams(query)) }) : router.push(path);
     }
 
-    // ── Notifications ──
+    // ── Notifications (dari API) ──
     const showNotif = ref(false);
-    const notifications = ref<Notif[]>([
-      { id: 1, title: "Welcome to the platform!", desc: "Your account has been created successfully.", time: "Just now", read: false,
-        svg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`, color: "#3ecf72" },
-      { id: 2, title: "Complete your profile", desc: "Fill in all fields to unlock features.", time: "2 min ago", read: false,
-        svg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`, color: "#f0a732" },
-      { id: 3, title: "Enable Two-Factor Auth", desc: "Protect your account with 2FA.", time: "Today", read: true,
-        svg: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`, color: "#5b9cf6" },
-    ]);
+    const notifLoading = ref(false);
+    const notifications = ref<any[]>([]);
+    const unreadCount = ref(0);
+    let pollInterval: any = null;
 
-    const unreadCount = computed(() => notifications.value.filter(n => !n.read).length);
-    function markAllRead() { notifications.value.forEach(n => (n.read = true)); }
+    const notifIcon = (type: string) => ({ success: '✅', warning: '⚠️', info: 'ℹ️' }[type] ?? '🔔')
+    const notifIconStyle = (type: string) => {
+      const map: Record<string, string> = { success: '#3ecf72', warning: '#f0a732', info: '#5b9cf6' }
+      const color = map[type] ?? '#aaa'
+      return { background: color + '20', color, width: '30px', height: '30px', borderRadius: '7px', flexShrink: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }
+    }
+
+    const timeAgo = (dateStr: string) => {
+      const diff = Date.now() - new Date(dateStr).getTime()
+      const mins = Math.floor(diff / 60000)
+      if (mins < 1)  return "Baru saja"
+      if (mins < 60) return `${mins} mnt lalu`
+      const hrs = Math.floor(mins / 60)
+      if (hrs < 24)  return `${hrs} jam lalu`
+      return `${Math.floor(hrs / 24)} hari lalu`
+    }
+
+    const fetchNotifications = async () => {
+      try {
+        ApiService.setHeader()
+        const { data } = await ApiService.get('notifications')
+        notifications.value = data.data
+        unreadCount.value   = data.unread
+      } catch (_) {}
+    }
+
+    const toggleNotif = async () => {
+      showNotif.value = !showNotif.value
+      if (showNotif.value) {
+        notifLoading.value = true
+        await fetchNotifications()
+        notifLoading.value = false
+      }
+    }
+
+    const markRead = async (n: any) => {
+      if (n.is_read) return
+      try {
+        ApiService.setHeader()
+        await ApiService.post(`notifications/${n.id}/read`, {})
+        n.is_read = true
+        unreadCount.value = Math.max(0, unreadCount.value - 1)
+      } catch (_) {}
+    }
+
+    const markAllRead = async () => {
+      try {
+        ApiService.setHeader()
+        await ApiService.post('notifications/read-all', {})
+        notifications.value.forEach(n => n.is_read = true)
+        unreadCount.value = 0
+      } catch (_) {}
+    }
 
     function onClickOutside(e: MouseEvent) {
       if (notifRef.value && !notifRef.value.contains(e.target as Node)) showNotif.value = false;
@@ -361,8 +464,15 @@ export default defineComponent({
       LayoutService.init();
       nextTick(() => { reinitializeComponents(); });
       document.addEventListener("click", onClickOutside);
+      // Fetch awal & poll tiap 60 detik
+      fetchNotifications();
+      pollInterval = setInterval(fetchNotifications, 60000);
     });
-    onUnmounted(() => { document.removeEventListener("click", onClickOutside); });
+
+    onUnmounted(() => {
+      document.removeEventListener("click", onClickOutside);
+      clearInterval(pollInterval);
+    });
 
     watch(() => route.path, () => {
       nextTick(() => { LayoutService.init(); reinitializeComponents(); });
@@ -373,8 +483,8 @@ export default defineComponent({
 
     return {
       getAssetPath, authStore, avatarUrl, currentYear, sidebarRef, onLogout,
-      isSettingsActive,
-      notifRef, showNotif, notifications, unreadCount, markAllRead,
+      notifRef, showNotif, notifLoading, notifications, unreadCount,
+      toggleNotif, markRead, markAllRead, notifIcon, notifIconStyle, timeAgo,
       searchQuery, searchFocused, searchResults, onSearchInput, onSearchBlur, clearSearch, goToRoute,
     };
   },
@@ -397,34 +507,31 @@ export default defineComponent({
 .ul-search-item-title { font-size: .73rem; font-weight: 600; color: #ddd; margin: 0; }
 .ul-search-item-desc { font-size: .6rem; color: #666; margin: .04rem 0 0; }
 .ul-search-empty { padding: .9rem 1rem; font-size: .7rem; color: #555; }
-
 .ul-icon-btn { width: 34px; height: 34px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center; color: #777; cursor: pointer; position: relative; transition: all .2s; }
 .ul-icon-btn:hover, .ul-icon-btn-active { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.16); color: #ddd; }
-
 .ul-badge { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; border-radius: 8px; background: #f0a732; color: #000; font-size: .5rem; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 3px; border: 2px solid #111; animation: badgePop .25s ease; }
 @keyframes badgePop { 0%{transform:scale(0)} 70%{transform:scale(1.3)} 100%{transform:scale(1)} }
-
 .ul-notif-panel { position: absolute; top: calc(100% + 10px); right: -10px; width: 310px; background: #111; border: 1px solid #1e1e1e; border-radius: 14px; overflow: hidden; z-index: 9999; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
 .ul-panel-head { display: flex; align-items: flex-start; justify-content: space-between; padding: .85rem 1rem .65rem; border-bottom: 1px solid #1a1a1a; }
 .ul-panel-title { font-size: .8rem; font-weight: 700; color: #ddd; margin: 0; }
 .ul-panel-sub { font-size: .6rem; color: #505050; margin: .08rem 0 0; }
 .ul-mark-btn { font-size: .6rem; font-weight: 600; color: #f0a732; background: none; border: none; cursor: pointer; padding: .15rem .4rem; border-radius: 4px; transition: background .15s; white-space: nowrap; }
 .ul-mark-btn:hover { background: rgba(240,167,50,.1); }
-.ul-notif-list { max-height: 250px; overflow-y: auto; }
+.ul-notif-empty { padding: 24px; text-align: center; color: #505050; font-size: .7rem; }
+.ul-notif-list { max-height: 260px; overflow-y: auto; }
+.ul-notif-list::-webkit-scrollbar { width: 3px; }
+.ul-notif-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
 .ul-notif-row { display: flex; align-items: flex-start; gap: .65rem; padding: .7rem 1rem; cursor: pointer; position: relative; transition: background .15s; border-bottom: 1px solid #161616; }
 .ul-notif-row:last-child { border-bottom: none; }
 .ul-notif-row:hover { background: #181818; }
 .ul-notif-unread { background: rgba(240,167,50,.025); }
-.ul-notif-dot-icon { width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
 .ul-notif-body { flex: 1; min-width: 0; }
 .ul-notif-title { font-size: .71rem; font-weight: 600; color: #ccc; margin: 0 0 .1rem; }
 .ul-notif-desc { font-size: .61rem; color: #666; margin: 0 0 .12rem; line-height: 1.4; }
 .ul-notif-time { font-size: .57rem; color: #444; margin: 0; }
 .ul-unread-dot { width: 6px; height: 6px; border-radius: 50%; background: #f0a732; flex-shrink: 0; margin-top: 5px; }
 .ul-panel-foot { padding: .6rem 1rem; border-top: 1px solid #1a1a1a; }
-.ul-view-all { display: flex; align-items: center; justify-content: center; gap: .35rem; font-size: .67rem; font-weight: 600; color: #f0a732; text-decoration: none; transition: opacity .15s; }
-.ul-view-all:hover { opacity: .75; }
-
+.ul-view-all { display: flex; align-items: center; justify-content: center; gap: .35rem; font-size: .67rem; font-weight: 600; color: #505050; text-decoration: none; }
 .ul-pop-enter-active, .ul-pop-leave-active { transition: opacity .17s ease, transform .17s ease; }
 .ul-pop-enter-from, .ul-pop-leave-to { opacity: 0; transform: translateY(-7px) scale(.97); }
 </style>

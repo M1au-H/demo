@@ -17,6 +17,57 @@ const MainMenuConfig: Array<MenuItem> = [
       },
     ],
   },
+
+  // ══════════════════════════════════════
+  // HR MANAGEMENT MENU
+  // ══════════════════════════════════════
+  {
+    heading: "HR Management",
+    route: "/hr",
+    pages: [
+      {
+        sectionTitle: "Absensi",
+        route: "/hr/attendance",
+        keenthemesIcon: "time",
+        bootstrapIcon: "bi-clock",
+        sub: [
+          {
+            heading: "Hari Ini",
+            route: "/hr/attendance/today",
+          },
+          {
+            heading: "Laporan Bulanan",
+            route: "/hr/attendance/monthly",
+          },
+        ],
+      },
+      {
+        heading: "Data Izin & Cuti",
+        route: "/hr/leaves",
+        keenthemesIcon: "calendar",
+        bootstrapIcon: "bi-calendar-check",
+      },
+      {
+        heading: "Penilaian Performa",
+        route: "/hr/performance",
+        keenthemesIcon: "star",
+        bootstrapIcon: "bi-star",
+      },
+      {
+        heading: "Sanksi & Tugas",
+        route: "/hr/sanctions",
+        keenthemesIcon: "shield-tick",
+        bootstrapIcon: "bi-shield-exclamation",
+      },
+      {
+        heading: "Jabatan",
+        route: "/hr/positions",
+        keenthemesIcon: "briefcase",
+        bootstrapIcon: "bi-briefcase",
+      },
+    ],
+  },
+
   {
     heading: "craft",
     route: "/crafted",
@@ -31,44 +82,20 @@ const MainMenuConfig: Array<MenuItem> = [
             sectionTitle: "profile",
             route: "/profile",
             sub: [
-              {
-                heading: "profileOverview",
-                route: "/crafted/pages/profile/overview",
-              },
-              {
-                heading: "projects",
-                route: "/crafted/pages/profile/projects",
-              },
-              {
-                heading: "campaigns",
-                route: "/crafted/pages/profile/campaigns",
-              },
-              {
-                heading: "documents",
-                route: "/crafted/pages/profile/documents",
-              },
-              {
-                heading: "connections",
-                route: "/crafted/pages/profile/connections",
-              },
-              {
-                heading: "activity",
-                route: "/crafted/pages/profile/activity",
-              },
+              { heading: "profileOverview",  route: "/crafted/pages/profile/overview" },
+              { heading: "projects",         route: "/crafted/pages/profile/projects" },
+              { heading: "campaigns",        route: "/crafted/pages/profile/campaigns" },
+              { heading: "documents",        route: "/crafted/pages/profile/documents" },
+              { heading: "connections",      route: "/crafted/pages/profile/connections" },
+              { heading: "activity",         route: "/crafted/pages/profile/activity" },
             ],
           },
           {
             sectionTitle: "wizards",
             route: "/wizard",
             sub: [
-              {
-                heading: "horizontal",
-                route: "/crafted/pages/wizards/horizontal",
-              },
-              {
-                heading: "vertical",
-                route: "/crafted/pages/wizards/vertical",
-              },
+              { heading: "horizontal", route: "/crafted/pages/wizards/horizontal" },
+              { heading: "vertical",   route: "/crafted/pages/wizards/vertical" },
             ],
           },
         ],
@@ -79,14 +106,8 @@ const MainMenuConfig: Array<MenuItem> = [
         keenthemesIcon: "profile-circle",
         bootstrapIcon: "bi-person",
         sub: [
-          {
-            heading: "accountOverview",
-            route: "/crafted/account/overview",
-          },
-          {
-            heading: "settings",
-            route: "/crafted/account/settings",
-          },
+          { heading: "accountOverview", route: "/crafted/account/overview" },
+          { heading: "settings",        route: "/crafted/account/settings" },
         ],
       },
       {
@@ -97,32 +118,14 @@ const MainMenuConfig: Array<MenuItem> = [
           {
             sectionTitle: "basicFlow",
             sub: [
-              {
-                heading: "signIn",
-                route: "/sign-in",
-              },
-              {
-                heading: "signUp",
-                route: "/sign-up",
-              },
-              {
-                heading: "passwordReset",
-                route: "/password-reset",
-              },
+              { heading: "signIn",        route: "/sign-in" },
+              { heading: "signUp",        route: "/sign-up" },
+              { heading: "passwordReset", route: "/password-reset" },
             ],
           },
-          {
-            heading: "multiStepSignUp",
-            route: "/multi-step-sign-up",
-          },
-          {
-            heading: "error404",
-            route: "/404",
-          },
-          {
-            heading: "error500",
-            route: "/500",
-          },
+          { heading: "multiStepSignUp", route: "/multi-step-sign-up" },
+          { heading: "error404",        route: "/404" },
+          { heading: "error500",        route: "/500" },
         ],
       },
       {
@@ -135,62 +138,29 @@ const MainMenuConfig: Array<MenuItem> = [
             sectionTitle: "general",
             route: "/general",
             sub: [
-              {
-                heading: "inviteFriends",
-                route: "/crafted/modals/general/invite-friends",
-              },
-              {
-                heading: "viewUsers",
-                route: "/crafted/modals/general/view-user",
-              },
-              {
-                heading: "upgradePlan",
-                route: "/crafted/modals/general/upgrade-plan",
-              },
-              {
-                heading: "shareAndEarn",
-                route: "/crafted/modals/general/share-and-earn",
-              },
+              { heading: "inviteFriends", route: "/crafted/modals/general/invite-friends" },
+              { heading: "viewUsers",     route: "/crafted/modals/general/view-user" },
+              { heading: "upgradePlan",   route: "/crafted/modals/general/upgrade-plan" },
+              { heading: "shareAndEarn",  route: "/crafted/modals/general/share-and-earn" },
             ],
           },
           {
             sectionTitle: "forms",
             route: "/forms",
             sub: [
-              {
-                heading: "newTarget",
-                route: "/crafted/modals/forms/new-target",
-              },
-              {
-                heading: "newCard",
-                route: "/crafted/modals/forms/new-card",
-              },
-              {
-                heading: "newAddress",
-                route: "/crafted/modals/forms/new-address",
-              },
-              {
-                heading: "createAPIKey",
-                route: "/crafted/modals/forms/create-api-key",
-              },
+              { heading: "newTarget",   route: "/crafted/modals/forms/new-target" },
+              { heading: "newCard",     route: "/crafted/modals/forms/new-card" },
+              { heading: "newAddress",  route: "/crafted/modals/forms/new-address" },
+              { heading: "createAPIKey",route: "/crafted/modals/forms/create-api-key" },
             ],
           },
           {
             sectionTitle: "wizards",
             route: "/wizards",
             sub: [
-              {
-                heading: "twoFactorAuth",
-                route: "/crafted/modals/wizards/two-factor-auth",
-              },
-              {
-                heading: "createApp",
-                route: "/crafted/modals/wizards/create-app",
-              },
-              {
-                heading: "createAccount",
-                route: "/crafted/modals/wizards/create-account",
-              },
+              { heading: "twoFactorAuth",  route: "/crafted/modals/wizards/two-factor-auth" },
+              { heading: "createApp",      route: "/crafted/modals/wizards/create-app" },
+              { heading: "createAccount",  route: "/crafted/modals/wizards/create-account" },
             ],
           },
         ],
@@ -201,30 +171,12 @@ const MainMenuConfig: Array<MenuItem> = [
         keenthemesIcon: "element-7",
         bootstrapIcon: "bi-layers",
         sub: [
-          {
-            heading: "widgetsLists",
-            route: "/crafted/widgets/lists",
-          },
-          {
-            heading: "widgetsStatistics",
-            route: "/crafted/widgets/statistics",
-          },
-          {
-            heading: "widgetsCharts",
-            route: "/crafted/widgets/charts",
-          },
-          {
-            heading: "widgetsMixed",
-            route: "/crafted/widgets/mixed",
-          },
-          {
-            heading: "widgetsTables",
-            route: "/crafted/widgets/tables",
-          },
-          {
-            heading: "widgetsFeeds",
-            route: "/crafted/widgets/feeds",
-          },
+          { heading: "widgetsLists",      route: "/crafted/widgets/lists" },
+          { heading: "widgetsStatistics", route: "/crafted/widgets/statistics" },
+          { heading: "widgetsCharts",     route: "/crafted/widgets/charts" },
+          { heading: "widgetsMixed",      route: "/crafted/widgets/mixed" },
+          { heading: "widgetsTables",     route: "/crafted/widgets/tables" },
+          { heading: "widgetsFeeds",      route: "/crafted/widgets/feeds" },
         ],
       },
     ],
@@ -239,18 +191,9 @@ const MainMenuConfig: Array<MenuItem> = [
         keenthemesIcon: "abstract-38",
         bootstrapIcon: "bi-printer",
         sub: [
-          {
-            heading: "gettingStarted",
-            route: "/apps/customers/getting-started",
-          },
-          {
-            heading: "customersListing",
-            route: "/apps/customers/customers-listing",
-          },
-          {
-            heading: "customerDetails",
-            route: "/apps/customers/customer-details",
-          },
+          { heading: "gettingStarted",    route: "/apps/customers/getting-started" },
+          { heading: "customersListing",  route: "/apps/customers/customers-listing" },
+          { heading: "customerDetails",   route: "/apps/customers/customer-details" },
         ],
       },
       {
@@ -259,22 +202,10 @@ const MainMenuConfig: Array<MenuItem> = [
         keenthemesIcon: "basket",
         bootstrapIcon: "bi-cart",
         sub: [
-          {
-            heading: "getStarted",
-            route: "/apps/subscriptions/getting-started",
-          },
-          {
-            heading: "subscriptionList",
-            route: "/apps/subscriptions/subscription-list",
-          },
-          {
-            heading: "addSubscription",
-            route: "/apps/subscriptions/add-subscription",
-          },
-          {
-            heading: "viewSubscription",
-            route: "/apps/subscriptions/view-subscription",
-          },
+          { heading: "getStarted",        route: "/apps/subscriptions/getting-started" },
+          { heading: "subscriptionList",  route: "/apps/subscriptions/subscription-list" },
+          { heading: "addSubscription",   route: "/apps/subscriptions/add-subscription" },
+          { heading: "viewSubscription",  route: "/apps/subscriptions/view-subscription" },
         ],
       },
       {
@@ -289,18 +220,9 @@ const MainMenuConfig: Array<MenuItem> = [
         keenthemesIcon: "message-text-2",
         bootstrapIcon: "bi-chat-left",
         sub: [
-          {
-            heading: "privateChat",
-            route: "/apps/chat/private-chat",
-          },
-          {
-            heading: "groupChat",
-            route: "/apps/chat/group-chat",
-          },
-          {
-            heading: "drawerChat",
-            route: "/apps/chat/drawer-chat",
-          },
+          { heading: "privateChat", route: "/apps/chat/private-chat" },
+          { heading: "groupChat",   route: "/apps/chat/group-chat" },
+          { heading: "drawerChat",  route: "/apps/chat/drawer-chat" },
         ],
       },
     ],
