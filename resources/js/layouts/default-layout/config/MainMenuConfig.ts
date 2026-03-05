@@ -65,6 +65,13 @@ const MainMenuConfig: Array<MenuItem> = [
         keenthemesIcon: "briefcase",
         bootstrapIcon: "bi-briefcase",
       },
+      // ── TAMBAHAN: Face Management ──
+      {
+        heading: "Face Management",
+        route: "/hr/face-management",
+        keenthemesIcon: "fingerprint-scanning",
+        bootstrapIcon: "bi-camera-video",
+      },
     ],
   },
 

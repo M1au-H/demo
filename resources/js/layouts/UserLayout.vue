@@ -6,50 +6,34 @@
       <div id="kt_app_header" class="app-header">
         <div class="app-container container-fluid d-flex align-items-stretch justify-content-between">
 
-          <!-- Mobile sidebar toggle -->
           <div class="d-flex align-items-center d-lg-none ms-n3 me-1">
             <div class="btn btn-icon btn-active-color-primary w-35px h-35px" id="kt_app_sidebar_mobile_toggle">
               <KTIcon icon-name="abstract-14" icon-class="fs-2 fs-md-1" />
             </div>
           </div>
 
-          <!-- Logo -->
           <div class="d-flex align-items-center flex-grow-1 flex-lg-grow-0">
             <router-link to="/user/dashboard" class="d-lg-none">
               <img alt="Logo" :src="getAssetPath('media/logos/default-small.svg')" class="h-30px" />
             </router-link>
           </div>
 
-          <!-- Navbar -->
           <div class="d-flex align-items-stretch justify-content-between flex-lg-grow-1">
 
-            <!-- ── Search bar ── -->
+            <!-- Search -->
             <div class="d-flex align-items-center flex-grow-1 px-3 px-lg-5">
               <div class="ul-search-wrap" :class="{ 'ul-search-focused': searchFocused }">
                 <span class="ul-search-icon">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 </span>
-                <input
-                  v-model="searchQuery"
-                  type="text"
-                  class="ul-search-input"
-                  placeholder="Search pages..."
-                  @focus="searchFocused = true"
-                  @blur="onSearchBlur"
-                  @input="onSearchInput"
-                  @keydown.escape="clearSearch"
-                />
+                <input v-model="searchQuery" type="text" class="ul-search-input" placeholder="Search pages..."
+                  @focus="searchFocused = true" @blur="onSearchBlur" @input="onSearchInput" @keydown.escape="clearSearch" />
                 <span v-if="searchQuery" class="ul-search-clear" @mousedown.prevent="clearSearch">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </span>
                 <div v-if="searchFocused && searchQuery.length > 0" class="ul-search-dropdown">
                   <template v-if="searchResults.length > 0">
-                    <div
-                      v-for="r in searchResults"
-                      :key="r.route"
-                      class="ul-search-item"
-                      @mousedown.prevent="goToRoute(r.route)"
-                    >
+                    <div v-for="r in searchResults" :key="r.route" class="ul-search-item" @mousedown.prevent="goToRoute(r.route)">
                       <span class="ul-search-item-icon" v-html="r.svgIcon"></span>
                       <div>
                         <p class="ul-search-item-title">{{ r.title }}</p>
@@ -65,13 +49,9 @@
             <!-- Right icons -->
             <div class="app-navbar flex-shrink-0 gap-2 d-flex align-items-center">
 
-              <!-- ── Notification Bell ── -->
+              <!-- Notification -->
               <div class="app-navbar-item position-relative" ref="notifRef">
-                <button
-                  class="ul-icon-btn"
-                  :class="{ 'ul-icon-btn-active': showNotif }"
-                  @click.stop="toggleNotif"
-                >
+                <button class="ul-icon-btn" :class="{ 'ul-icon-btn-active': showNotif }" @click.stop="toggleNotif">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   <span v-if="unreadCount > 0" class="ul-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
                 </button>
@@ -84,30 +64,16 @@
                       </div>
                       <button v-if="unreadCount > 0" class="ul-mark-btn" @click="markAllRead">Tandai semua dibaca</button>
                     </div>
-
-                    <!-- Loading -->
                     <div v-if="notifLoading" class="ul-notif-empty">
                       <span class="spinner-border spinner-border-sm me-2"></span> Memuat...
                     </div>
-
-                    <!-- Empty -->
                     <div v-else-if="notifications.length === 0" class="ul-notif-empty">
                       <div style="font-size:28px;margin-bottom:6px">🔔</div>
                       <p>Tidak ada notifikasi</p>
                     </div>
-
-                    <!-- List -->
                     <div v-else class="ul-notif-list">
-                      <div
-                        v-for="n in notifications"
-                        :key="n.id"
-                        class="ul-notif-row"
-                        :class="{ 'ul-notif-unread': !n.is_read }"
-                        @click="markRead(n)"
-                      >
-                        <span class="ul-notif-dot-icon" :style="notifIconStyle(n.type)">
-                          {{ notifIcon(n.type) }}
-                        </span>
+                      <div v-for="n in notifications" :key="n.id" class="ul-notif-row" :class="{ 'ul-notif-unread': !n.is_read }" @click="markRead(n)">
+                        <span class="ul-notif-dot-icon" :style="notifIconStyle(n.type)">{{ notifIcon(n.type) }}</span>
                         <div class="ul-notif-body">
                           <p class="ul-notif-title">{{ n.title }}</p>
                           <p class="ul-notif-desc">{{ n.message }}</p>
@@ -116,24 +82,16 @@
                         <span v-if="!n.is_read" class="ul-unread-dot"></span>
                       </div>
                     </div>
-
                     <div class="ul-panel-foot">
-                      <span class="ul-view-all" style="cursor:default;color:#505050">
-                        HR Notification System
-                      </span>
+                      <span class="ul-view-all" style="cursor:default;color:#505050">HR Notification System</span>
                     </div>
                   </div>
                 </transition>
               </div>
 
-              <!-- ── Avatar dropdown ── -->
+              <!-- Avatar -->
               <div class="app-navbar-item ms-1 ms-md-2">
-                <div
-                  class="cursor-pointer symbol symbol-35px"
-                  data-kt-menu-trigger="{default: 'click'}"
-                  data-kt-menu-attach="parent"
-                  data-kt-menu-placement="bottom-end"
-                >
+                <div class="cursor-pointer symbol symbol-35px" data-kt-menu-trigger="{default: 'click'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
                   <img v-if="authStore.user.avatar" :src="avatarUrl" alt="user" class="rounded-circle object-fit-cover" />
                   <div v-else class="symbol-label fw-bold bg-primary text-white fs-6">
                     {{ authStore.user.name ? authStore.user.name.charAt(0).toUpperCase() : 'U' }}
@@ -158,16 +116,10 @@
                     </div>
                   </div>
                   <div class="separator my-2"></div>
-                  <div class="menu-item px-5">
-                    <router-link to="/user/profile" class="menu-link px-5">My Profile</router-link>
-                  </div>
-                  <div class="menu-item px-5">
-                    <router-link to="/user/settings" class="menu-link px-5">Settings</router-link>
-                  </div>
+                  <div class="menu-item px-5"><router-link to="/user/profile" class="menu-link px-5">My Profile</router-link></div>
+                  <div class="menu-item px-5"><router-link to="/user/settings" class="menu-link px-5">Settings</router-link></div>
                   <div class="separator my-2"></div>
-                  <div class="menu-item px-5">
-                    <a @click="onLogout" class="menu-link px-5 cursor-pointer">Sign Out</a>
-                  </div>
+                  <div class="menu-item px-5"><a @click="onLogout" class="menu-link px-5 cursor-pointer">Sign Out</a></div>
                 </div>
               </div>
 
@@ -179,19 +131,13 @@
       <!-- ══ WRAPPER ══ -->
       <div class="app-wrapper flex-column flex-row-fluid" id="kt_app_wrapper">
 
-        <!-- ── Sidebar ── -->
-        <div
-          ref="sidebarRef"
-          id="kt_app_sidebar"
-          class="app-sidebar flex-column"
-          data-kt-drawer="true"
-          data-kt-drawer-name="app-sidebar"
-          data-kt-drawer-activate="{default: true, lg: false}"
-          data-kt-drawer-overlay="true"
-          data-kt-drawer-width="225px"
-          data-kt-drawer-direction="start"
-          data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle"
-        >
+        <!-- Sidebar -->
+        <div ref="sidebarRef" id="kt_app_sidebar" class="app-sidebar flex-column"
+          data-kt-drawer="true" data-kt-drawer-name="app-sidebar"
+          data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true"
+          data-kt-drawer-width="225px" data-kt-drawer-direction="start"
+          data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
+
           <div class="app-sidebar-logo px-6" id="kt_app_sidebar_logo">
             <router-link to="/user/dashboard">
               <img alt="Logo" :src="getAssetPath('media/logos/default-dark.svg')" class="h-25px app-sidebar-logo-default" />
@@ -200,19 +146,14 @@
           </div>
 
           <div class="app-sidebar-menu overflow-hidden flex-column-fluid">
-            <div
-              id="kt_app_sidebar_menu_wrapper"
-              class="app-sidebar-wrapper hover-scroll-overlay-y my-5"
-              data-kt-scroll="true"
-              data-kt-scroll-activate="true"
-              data-kt-scroll-height="auto"
+            <div id="kt_app_sidebar_menu_wrapper" class="app-sidebar-wrapper hover-scroll-overlay-y my-5"
+              data-kt-scroll="true" data-kt-scroll-activate="true" data-kt-scroll-height="auto"
               data-kt-scroll-dependencies="#kt_app_sidebar_logo, #kt_app_sidebar_footer"
-              data-kt-scroll-wrappers="#kt_app_sidebar_menu"
-              data-kt-scroll-offset="5px"
-            >
+              data-kt-scroll-wrappers="#kt_app_sidebar_menu" data-kt-scroll-offset="5px">
+
               <div id="#kt_app_sidebar_menu" class="menu menu-column menu-rounded menu-sub-indention px-3" data-kt-menu="true">
 
-                <!-- ══ MAIN ══ -->
+                <!-- MAIN -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Main</span>
@@ -225,17 +166,11 @@
                   </router-link>
                 </div>
 
-                <!-- ══ ABSENSI ══ -->
+                <!-- ABSENSI — Absen Masuk DIHAPUS, hanya Absen Pulang -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Absensi</span>
                   </div>
-                </div>
-                <div class="menu-item">
-                  <router-link class="menu-link" active-class="active" to="/user/attendance/check-in">
-                    <span class="menu-icon"><KTIcon icon-name="entrance-right" icon-class="fs-2" /></span>
-                    <span class="menu-title">Absen Masuk</span>
-                  </router-link>
                 </div>
                 <div class="menu-item">
                   <router-link class="menu-link" active-class="active" to="/user/attendance/check-out">
@@ -249,7 +184,6 @@
                     <span class="menu-title">Riwayat Absensi</span>
                   </router-link>
                 </div>
-                <!-- ✅ Izin & Cuti -->
                 <div class="menu-item">
                   <router-link class="menu-link" active-class="active" to="/user/attendance/leave">
                     <span class="menu-icon"><KTIcon icon-name="document" icon-class="fs-2" /></span>
@@ -257,7 +191,7 @@
                   </router-link>
                 </div>
 
-                <!-- ══ PERFORMA ══ -->
+                <!-- PERFORMA -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Performa</span>
@@ -270,7 +204,7 @@
                   </router-link>
                 </div>
 
-                <!-- ══ ACCOUNT ══ -->
+                <!-- ACCOUNT -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Account</span>
@@ -289,7 +223,7 @@
                   </router-link>
                 </div>
 
-                <!-- ══ SESSION ══ -->
+                <!-- SESSION -->
                 <div class="menu-item pt-5">
                   <div class="menu-content">
                     <span class="menu-heading fw-bold text-uppercase fs-7">Session</span>
@@ -307,7 +241,7 @@
           </div>
         </div>
 
-        <!-- ── Main ── -->
+        <!-- Main content -->
         <div class="app-main flex-column flex-row-fluid" id="kt_app_main">
           <div class="d-flex flex-column flex-column-fluid">
             <div id="kt_app_content" class="app-content flex-column-fluid">
@@ -345,10 +279,8 @@ interface SearchResult { title: string; desc: string; route: string; svgIcon: st
 const SEARCH_PAGES: SearchResult[] = [
   { title: "Dashboard", desc: "Account overview & activity", route: "/user/dashboard",
     svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>` },
-  { title: "Absen Masuk", desc: "Absensi masuk harian", route: "/user/attendance/check-in",
-    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>` },
-  { title: "Absen Pulang", desc: "Absensi pulang harian", route: "/user/attendance/check-out",
-    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>` },
+  { title: "Absen Pulang", desc: "Absensi pulang harian via face recognition", route: "/user/attendance/check-out",
+    svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>` },
   { title: "Riwayat Absensi", desc: "Histori kehadiran kamu", route: "/user/attendance/history",
     svgIcon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>` },
   { title: "Izin & Cuti", desc: "Ajukan izin atau cuti", route: "/user/attendance/leave",
@@ -364,11 +296,11 @@ const SEARCH_PAGES: SearchResult[] = [
 export default defineComponent({
   name: "user-layout",
   setup() {
-    const route = useRoute();
-    const router = useRouter();
-    const authStore = useAuthStore();
+    const route      = useRoute();
+    const router     = useRouter();
+    const authStore  = useAuthStore();
     const sidebarRef = ref<HTMLElement | null>(null);
-    const notifRef = ref<HTMLElement | null>(null);
+    const notifRef   = ref<HTMLElement | null>(null);
     const currentYear = new Date().getFullYear();
 
     const avatarUrl = computed(() => {
@@ -376,11 +308,10 @@ export default defineComponent({
       return `${import.meta.env.VITE_APP_API_URL?.replace('/api', '')}/storage/${authStore.user.avatar}`;
     });
 
-    // ── Search ──
-    const searchQuery = ref("");
+    // Search
+    const searchQuery   = ref("");
     const searchFocused = ref(false);
     const searchResults = ref<SearchResult[]>([]);
-
     function onSearchInput() {
       const q = searchQuery.value.toLowerCase().trim();
       searchResults.value = !q ? [] : SEARCH_PAGES.filter(
@@ -395,20 +326,19 @@ export default defineComponent({
       query ? router.push({ path, query: Object.fromEntries(new URLSearchParams(query)) }) : router.push(path);
     }
 
-    // ── Notifications (dari API) ──
-    const showNotif = ref(false);
-    const notifLoading = ref(false);
+    // Notifications
+    const showNotif     = ref(false);
+    const notifLoading  = ref(false);
     const notifications = ref<any[]>([]);
-    const unreadCount = ref(0);
+    const unreadCount   = ref(0);
     let pollInterval: any = null;
 
-    const notifIcon = (type: string) => ({ success: '✅', warning: '⚠️', info: 'ℹ️' }[type] ?? '🔔')
+    const notifIcon      = (type: string) => ({ success: '✅', warning: '⚠️', info: 'ℹ️' }[type] ?? '🔔');
     const notifIconStyle = (type: string) => {
       const map: Record<string, string> = { success: '#3ecf72', warning: '#f0a732', info: '#5b9cf6' }
       const color = map[type] ?? '#aaa'
       return { background: color + '20', color, width: '30px', height: '30px', borderRadius: '7px', flexShrink: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }
-    }
-
+    };
     const timeAgo = (dateStr: string) => {
       const diff = Date.now() - new Date(dateStr).getTime()
       const mins = Math.floor(diff / 60000)
@@ -417,44 +347,21 @@ export default defineComponent({
       const hrs = Math.floor(mins / 60)
       if (hrs < 24)  return `${hrs} jam lalu`
       return `${Math.floor(hrs / 24)} hari lalu`
-    }
-
+    };
     const fetchNotifications = async () => {
-      try {
-        ApiService.setHeader()
-        const { data } = await ApiService.get('notifications')
-        notifications.value = data.data
-        unreadCount.value   = data.unread
-      } catch (_) {}
-    }
-
+      try { ApiService.setHeader(); const { data } = await ApiService.get('notifications'); notifications.value = data.data; unreadCount.value = data.unread; } catch (_) {}
+    };
     const toggleNotif = async () => {
-      showNotif.value = !showNotif.value
-      if (showNotif.value) {
-        notifLoading.value = true
-        await fetchNotifications()
-        notifLoading.value = false
-      }
-    }
-
+      showNotif.value = !showNotif.value;
+      if (showNotif.value) { notifLoading.value = true; await fetchNotifications(); notifLoading.value = false; }
+    };
     const markRead = async (n: any) => {
-      if (n.is_read) return
-      try {
-        ApiService.setHeader()
-        await ApiService.post(`notifications/${n.id}/read`, {})
-        n.is_read = true
-        unreadCount.value = Math.max(0, unreadCount.value - 1)
-      } catch (_) {}
-    }
-
+      if (n.is_read) return;
+      try { ApiService.setHeader(); await ApiService.post(`notifications/${n.id}/read`, {}); n.is_read = true; unreadCount.value = Math.max(0, unreadCount.value - 1); } catch (_) {}
+    };
     const markAllRead = async () => {
-      try {
-        ApiService.setHeader()
-        await ApiService.post('notifications/read-all', {})
-        notifications.value.forEach(n => n.is_read = true)
-        unreadCount.value = 0
-      } catch (_) {}
-    }
+      try { ApiService.setHeader(); await ApiService.post('notifications/read-all', {}); notifications.value.forEach(n => n.is_read = true); unreadCount.value = 0; } catch (_) {}
+    };
 
     function onClickOutside(e: MouseEvent) {
       if (notifRef.value && !notifRef.value.contains(e.target as Node)) showNotif.value = false;
@@ -464,16 +371,13 @@ export default defineComponent({
       LayoutService.init();
       nextTick(() => { reinitializeComponents(); });
       document.addEventListener("click", onClickOutside);
-      // Fetch awal & poll tiap 60 detik
       fetchNotifications();
       pollInterval = setInterval(fetchNotifications, 60000);
     });
-
     onUnmounted(() => {
       document.removeEventListener("click", onClickOutside);
       clearInterval(pollInterval);
     });
-
     watch(() => route.path, () => {
       nextTick(() => { LayoutService.init(); reinitializeComponents(); });
       showNotif.value = false;

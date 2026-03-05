@@ -40,7 +40,6 @@ class AdminPerformanceController extends Controller
             'comment'     => $request->comment,
         ]);
 
-        // Kirim notifikasi ke pegawai
         NotificationHelper::performanceReview((int) $userId, $request->rating);
 
         return response()->json([
@@ -82,7 +81,6 @@ class AdminPerformanceController extends Controller
             'sanction_date' => Carbon::today()->toDateString(),
         ]);
 
-        // Kirim notifikasi ke pegawai
         NotificationHelper::sanction((int) $userId, $request->type, $request->reason);
 
         return response()->json([
@@ -113,7 +111,6 @@ class AdminPerformanceController extends Controller
             'status'      => 'pending',
         ]);
 
-        // Kirim notifikasi ke pegawai
         NotificationHelper::additionalTask((int) $userId, $request->title, $request->due_date);
 
         return response()->json([
@@ -132,6 +129,64 @@ class AdminPerformanceController extends Controller
             'message' => 'Tugas ditandai selesai',
             'data'    => $task,
         ]);
+    }
+
+    // GET /api/admin/sanctions/completed — list sanksi yang sudah diselesaikan pegawai
+    public function completedSanctions()
+    {
+        $sanctions = Sanction::whereNotNull('completed_at')
+            ->with([
+                'user:id,name',
+                'giver:id,name',
+            ])
+            ->orderBy('completed_at', 'desc')
+            ->get()
+            ->map(function ($s) {
+                $s->proof_photo_url = $s->proof_photo
+                    ? url('storage/' . $s->proof_photo)
+                    : null;
+                return $s;
+            });
+
+        return response()->json(['data' => $sanctions]);
+    }
+
+    // GET /api/admin/tasks/completed — list tugas yang sudah diselesaikan pegawai
+    public function completedTasks()
+    {
+        $tasks = AdditionalTask::where('status', 'done')
+            ->with([
+                'user:id,name',
+                'assigner:id,name',
+            ])
+            ->orderBy('completed_at', 'desc')
+            ->get()
+            ->map(function ($t) {
+                $t->proof_photo_url = $t->proof_photo
+                    ? url('storage/' . $t->proof_photo)
+                    : null;
+                return $t;
+            });
+
+        return response()->json(['data' => $tasks]);
+    }
+
+    // POST /api/admin/sanctions/{id}/seen — admin tandai sudah lihat bukti sanksi
+    public function markSanctionSeen($id)
+    {
+        $sanction = Sanction::findOrFail($id);
+        $sanction->update(['admin_seen' => true]);
+
+        return response()->json(['message' => 'OK']);
+    }
+
+    // POST /api/admin/tasks/{id}/seen — admin tandai sudah lihat bukti tugas
+    public function markTaskSeen($id)
+    {
+        $task = AdditionalTask::findOrFail($id);
+        $task->update(['admin_seen' => true]);
+
+        return response()->json(['message' => 'OK']);
     }
 
     // GET /api/admin/employees

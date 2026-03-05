@@ -27,7 +27,6 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        // api_token TIDAK di-hide agar frontend bisa terima token setelah login
     ];
 
     protected function casts(): array
@@ -64,7 +63,23 @@ class User extends Authenticatable
         return $this->hasMany(AdditionalTask::class);
     }
 
+    public function leaves()
+    {
+        return $this->hasMany(Leave::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function faceProfile()
+    {
+        return $this->hasOne(FaceProfile::class);
+    }
+
     // ── Helper ──
+
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
@@ -74,10 +89,4 @@ class User extends Authenticatable
     {
         return $this->role === 'user';
     }
-
-    public function leaves() 
-    { return $this->hasMany(Leave::class); }
-
-public function notifications() 
-{ return $this->hasMany(Notification::class); }
 }

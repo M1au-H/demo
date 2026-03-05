@@ -24,7 +24,6 @@ export const useAuthStore = defineStore("auth", () => {
 
   function setAuth(authUser: User) {
     isAuthenticated.value = true;
-    // Merge dengan data lama agar tidak ada field yang hilang
     user.value = { ...user.value, ...authUser };
     errors.value = {};
     JwtService.saveToken(user.value.api_token);
@@ -43,10 +42,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   function login(credentials: { email: string; password: string }) {
     return ApiService.post("login", credentials)
-      .then(({ data }) => {
-        // Backend return langsung object user (flat), bukan nested
-        setAuth(data);
-      })
+      .then(({ data }) => { setAuth(data); })
       .catch(({ response }) => {
         setError(response?.data?.errors ?? { general: "Login gagal" });
       });
@@ -60,7 +56,6 @@ export const useAuthStore = defineStore("auth", () => {
       });
   }
 
-  // FIX: logout sekarang memanggil API agar token di DB dihapus
   async function logout() {
     try {
       ApiService.setHeader();
@@ -82,24 +77,16 @@ export const useAuthStore = defineStore("auth", () => {
 
   function updateProfile(profileData: Partial<User>) {
     ApiService.setHeader();
-
-    // Kirim semua field yang ada di profileData (termasuk string kosong
-    // agar backend bisa tahu field mana yang memang dikosongkan)
-    // Field null/undefined di-skip agar tidak error validasi Laravel
     const payload: Record<string, any> = {};
     const fields = ["name", "phone", "bio", "job_title", "company"] as const;
-
     fields.forEach((key) => {
       const val = (profileData as any)[key];
-      // Kirim jika ada nilainya (termasuk string kosong untuk clear field)
       if (val !== undefined && val !== null) {
         payload[key] = val === "" ? null : val;
       }
     });
-
     return ApiService.post("profile/update", payload)
       .then(({ data }) => {
-        // Backend return user object langsung setelah update
         user.value = { ...user.value, ...data };
         errors.value = {};
       })
@@ -111,17 +98,13 @@ export const useAuthStore = defineStore("auth", () => {
 
   function uploadAvatar(file: File) {
     ApiService.setHeader();
-
     const formData = new FormData();
     formData.append("avatar", file);
-
     return ApiService.post("profile/avatar", formData)
       .then(({ data }) => {
-        // Backend return { message, avatar, avatar_url, user }
         if (data.user) {
           user.value = { ...user.value, ...data.user };
         } else if (data.avatar) {
-          // Fallback jika backend hanya return avatar path
           user.value = { ...user.value, avatar: data.avatar };
         }
         errors.value = {};
@@ -134,20 +117,15 @@ export const useAuthStore = defineStore("auth", () => {
       });
   }
 
-  // FIX UTAMA: verifyAuth sekarang async & return Promise
-  // sehingga router guard bisa await dan tunggu data user siap
-  // sebelum render halaman
   async function verifyAuth() {
     const token = JwtService.getToken();
     if (!token) {
       purgeAuth();
       return;
     }
-
     ApiService.setHeader();
     try {
       const { data } = await ApiService.post("verify_token", { api_token: token });
-      // data adalah user object langsung dari backend
       setAuth(data);
     } catch (err: any) {
       const response = err?.response;
@@ -168,6 +146,7 @@ export const useAuthStore = defineStore("auth", () => {
     errors,
     user,
     isAuthenticated,
+    setAuth,
     login,
     adminLogin,
     logout,

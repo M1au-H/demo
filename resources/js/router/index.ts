@@ -26,8 +26,6 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import("@/views/LayoutBuilder.vue"),
         meta: { pageTitle: "Layout Builder", breadcrumbs: ["Layout"] },
       },
-
-      // ── HR: Admin ──
       {
         path: "/hr/attendance/today",
         name: "hr-attendance-today",
@@ -64,7 +62,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import("@/views/admin/hr/leave/AdminLeaveList.vue"),
         meta: { pageTitle: "Data Izin & Cuti", breadcrumbs: ["HR", "Izin & Cuti"] },
       },
-
+      {
+        path: "/hr/face-management",
+        name: "face-management",
+        component: () => import("@/views/admin/hr/face/FaceManagement.vue"),
+        meta: { pageTitle: "Face Management", breadcrumbs: ["HR", "Face Management"] },
+      },
       {
         path: "/crafted/pages/profile",
         name: "profile",
@@ -112,23 +115,23 @@ const routes: Array<RouteRecordRaw> = [
       { path: "/apps/chat/private-chat",  name: "apps-private-chat",  component: () => import("@/views/apps/chat/Chat.vue"),             meta: { pageTitle: "Private Chat", breadcrumbs: ["Apps", "Chat"] } },
       { path: "/apps/chat/group-chat",    name: "apps-group-chat",    component: () => import("@/views/apps/chat/Chat.vue"),             meta: { pageTitle: "Group Chat", breadcrumbs: ["Apps", "Chat"] } },
       { path: "/apps/chat/drawer-chat",   name: "apps-drawer-chat",   component: () => import("@/views/apps/chat/DrawerChat.vue"),       meta: { pageTitle: "Drawer Chat", breadcrumbs: ["Apps", "Chat"] } },
-      { path: "/crafted/modals/general/invite-friends",      name: "modals-general-invite-friends",  component: () => import("@/views/crafted/modals/general/InviteFriends.vue"), meta: { pageTitle: "Invite Friends", breadcrumbs: ["Crafted", "Modals", "General"] } },
-      { path: "/crafted/modals/general/view-user",           name: "modals-general-view-user",       component: () => import("@/views/crafted/modals/general/ViewUsers.vue"),     meta: { pageTitle: "View User", breadcrumbs: ["Crafted", "Modals", "General"] } },
-      { path: "/crafted/modals/general/upgrade-plan",        name: "modals-general-upgrade-plan",    component: () => import("@/views/crafted/modals/general/UpgradePlan.vue"),   meta: { pageTitle: "Upgrade Plan", breadcrumbs: ["Crafted", "Modals", "General"] } },
-      { path: "/crafted/modals/general/share-and-earn",      name: "modals-general-share-and-earn",  component: () => import("@/views/crafted/modals/general/ShareAndEarn.vue"),  meta: { pageTitle: "Share And Earn", breadcrumbs: ["Crafted", "Modals", "General"] } },
-      { path: "/crafted/modals/forms/new-target",            name: "modals-forms-new-target",        component: () => import("@/views/crafted/modals/forms/NewTarget.vue"),       meta: { pageTitle: "New Target", breadcrumbs: ["Crafted", "Modals", "Forms"] } },
-      { path: "/crafted/modals/forms/new-card",              name: "modals-forms-new-card",          component: () => import("@/views/crafted/modals/forms/NewCard.vue"),         meta: { pageTitle: "New Card", breadcrumbs: ["Crafted", "Modals", "Forms"] } },
-      { path: "/crafted/modals/forms/new-address",           name: "modals-forms-new-address",       component: () => import("@/views/crafted/modals/forms/NewAddress.vue"),      meta: { pageTitle: "New Address", breadcrumbs: ["Crafted", "Modals", "Forms"] } },
-      { path: "/crafted/modals/forms/create-api-key",        name: "modals-forms-create-api-key",    component: () => import("@/views/crafted/modals/forms/CreateApiKey.vue"),    meta: { pageTitle: "Create Api Key", breadcrumbs: ["Crafted", "Modals", "Forms"] } },
-      { path: "/crafted/modals/wizards/two-factor-auth",     name: "modals-wizards-two-factor-auth", component: () => import("@/views/crafted/modals/wizards/TwoFactorAuth.vue"), meta: { pageTitle: "Two Factory Auth", breadcrumbs: ["Crafted", "Modals", "Wizards"] } },
-      { path: "/crafted/modals/wizards/create-app",          name: "modals-wizards-create-app",      component: () => import("@/views/crafted/modals/wizards/CreateApp.vue"),     meta: { pageTitle: "Create App", breadcrumbs: ["Crafted", "Modals", "Wizards"] } },
-      { path: "/crafted/modals/wizards/create-account",      name: "modals-wizards-create-account",  component: () => import("@/views/crafted/modals/wizards/CreateAccount.vue"), meta: { pageTitle: "Create Account", breadcrumbs: ["Crafted", "Modals", "Wizards"] } },
-      { path: "/crafted/widgets/lists",      name: "widgets-list",       component: () => import("@/views/crafted/widgets/Lists.vue"),      meta: { pageTitle: "Lists", breadcrumbs: ["Crafted", "Widgets"] } },
-      { path: "/crafted/widgets/statistics", name: "widgets-statistics", component: () => import("@/views/crafted/widgets/Statistics.vue"), meta: { pageTitle: "Statistics", breadcrumbs: ["Crafted", "Widgets"] } },
-      { path: "/crafted/widgets/charts",     name: "widgets-charts",     component: () => import("@/views/crafted/widgets/Charts.vue"),     meta: { pageTitle: "Charts", breadcrumbs: ["Crafted", "Widgets"] } },
-      { path: "/crafted/widgets/mixed",      name: "widgets-mixed",      component: () => import("@/views/crafted/widgets/Mixed.vue"),      meta: { pageTitle: "Mixed", breadcrumbs: ["Crafted", "Widgets"] } },
-      { path: "/crafted/widgets/tables",     name: "widgets-tables",     component: () => import("@/views/crafted/widgets/Tables.vue"),     meta: { pageTitle: "Tables", breadcrumbs: ["Crafted", "Widgets"] } },
-      { path: "/crafted/widgets/feeds",      name: "widgets-feeds",      component: () => import("@/views/crafted/widgets/Feeds.vue"),      meta: { pageTitle: "Feeds", breadcrumbs: ["Crafted", "Widgets"] } },
+      { path: "/crafted/modals/general/invite-friends",      name: "modals-general-invite-friends",  component: () => import("@/views/crafted/modals/general/InviteFriends.vue"), meta: { pageTitle: "Invite Friends" } },
+      { path: "/crafted/modals/general/view-user",           name: "modals-general-view-user",       component: () => import("@/views/crafted/modals/general/ViewUsers.vue"),     meta: { pageTitle: "View User" } },
+      { path: "/crafted/modals/general/upgrade-plan",        name: "modals-general-upgrade-plan",    component: () => import("@/views/crafted/modals/general/UpgradePlan.vue"),   meta: { pageTitle: "Upgrade Plan" } },
+      { path: "/crafted/modals/general/share-and-earn",      name: "modals-general-share-and-earn",  component: () => import("@/views/crafted/modals/general/ShareAndEarn.vue"),  meta: { pageTitle: "Share And Earn" } },
+      { path: "/crafted/modals/forms/new-target",            name: "modals-forms-new-target",        component: () => import("@/views/crafted/modals/forms/NewTarget.vue"),       meta: { pageTitle: "New Target" } },
+      { path: "/crafted/modals/forms/new-card",              name: "modals-forms-new-card",          component: () => import("@/views/crafted/modals/forms/NewCard.vue"),         meta: { pageTitle: "New Card" } },
+      { path: "/crafted/modals/forms/new-address",           name: "modals-forms-new-address",       component: () => import("@/views/crafted/modals/forms/NewAddress.vue"),      meta: { pageTitle: "New Address" } },
+      { path: "/crafted/modals/forms/create-api-key",        name: "modals-forms-create-api-key",    component: () => import("@/views/crafted/modals/forms/CreateApiKey.vue"),    meta: { pageTitle: "Create Api Key" } },
+      { path: "/crafted/modals/wizards/two-factor-auth",     name: "modals-wizards-two-factor-auth", component: () => import("@/views/crafted/modals/wizards/TwoFactorAuth.vue"), meta: { pageTitle: "Two Factory Auth" } },
+      { path: "/crafted/modals/wizards/create-app",          name: "modals-wizards-create-app",      component: () => import("@/views/crafted/modals/wizards/CreateApp.vue"),     meta: { pageTitle: "Create App" } },
+      { path: "/crafted/modals/wizards/create-account",      name: "modals-wizards-create-account",  component: () => import("@/views/crafted/modals/wizards/CreateAccount.vue"), meta: { pageTitle: "Create Account" } },
+      { path: "/crafted/widgets/lists",      name: "widgets-list",       component: () => import("@/views/crafted/widgets/Lists.vue"),      meta: { pageTitle: "Lists" } },
+      { path: "/crafted/widgets/statistics", name: "widgets-statistics", component: () => import("@/views/crafted/widgets/Statistics.vue"), meta: { pageTitle: "Statistics" } },
+      { path: "/crafted/widgets/charts",     name: "widgets-charts",     component: () => import("@/views/crafted/widgets/Charts.vue"),     meta: { pageTitle: "Charts" } },
+      { path: "/crafted/widgets/mixed",      name: "widgets-mixed",      component: () => import("@/views/crafted/widgets/Mixed.vue"),      meta: { pageTitle: "Mixed" } },
+      { path: "/crafted/widgets/tables",     name: "widgets-tables",     component: () => import("@/views/crafted/widgets/Tables.vue"),     meta: { pageTitle: "Tables" } },
+      { path: "/crafted/widgets/feeds",      name: "widgets-feeds",      component: () => import("@/views/crafted/widgets/Feeds.vue"),      meta: { pageTitle: "Feeds" } },
     ],
   },
 
@@ -157,14 +160,7 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import("@/views/user/UserSettings.vue"),
         meta: { pageTitle: "Settings", middleware: "auth-user" },
       },
-
-      // ── HR: Absensi User ──
-      {
-        path: "/user/attendance/check-in",
-        name: "user-check-in",
-        component: () => import("@/views/user/attendance/CheckIn.vue"),
-        meta: { pageTitle: "Absen Masuk", middleware: "auth-user" },
-      },
+      // ✅ ROUTE BARU: Absen Pulang via face recognition
       {
         path: "/user/attendance/check-out",
         name: "user-check-out",
@@ -215,12 +211,6 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import("@/views/crafted/authentication/basic-flow/PasswordReset.vue"),
         meta: { pageTitle: "Password reset" },
       },
-      {
-        path: "/user/sign-in",
-        name: "user-sign-in",
-        component: () => import("@/views/user/UserSignIn.vue"),
-        meta: { pageTitle: "User Sign In" },
-      },
     ],
   },
 
@@ -265,10 +255,11 @@ router.beforeEach(async (to, from, next) => {
   document.title = `${to.meta.pageTitle ?? "Page"} - ${import.meta.env.VITE_APP_NAME}`;
   configStore.resetLayoutConfig();
 
-  const publicPages = ["sign-in", "sign-up", "password-reset", "user-sign-in", "404", "500"];
+  const publicPages = ["sign-in", "sign-up", "password-reset", "404", "500"];
   const isPublicPage = publicPages.includes(to.name as string);
 
-  if (!isPublicPage) {
+  // Hanya panggil verifyAuth jika belum authenticated
+  if (!isPublicPage && !authStore.isAuthenticated) {
     await authStore.verifyAuth();
   }
 
@@ -286,7 +277,7 @@ router.beforeEach(async (to, from, next) => {
     } else if (authStore.isAuthenticated && authStore.isAdmin()) {
       next({ name: "dashboard" });
     } else {
-      next({ name: "user-sign-in" });
+      next({ name: "sign-in" });
     }
   } else {
     next();

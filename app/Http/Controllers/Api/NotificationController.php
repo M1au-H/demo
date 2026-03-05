@@ -25,7 +25,10 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $this->checkAttendanceNotifications($user);
+        // Cek notif absensi HANYA untuk pegawai (bukan admin)
+        if ($user->role !== 'admin') {
+            $this->checkAttendanceNotifications($user);
+        }
 
         $notifications = Notification::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
@@ -73,6 +76,7 @@ class NotificationController extends Controller
         $now       = Carbon::now();
         $dayOfWeek = $today->dayOfWeek;
 
+        // Skip hari Minggu
         if ($dayOfWeek === 0) return;
 
         $endHour = ($dayOfWeek === 5) ? 15 : 16;

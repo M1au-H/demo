@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\FaceController;
+use App\Http\Controllers\Api\FaceLoginController;
 use App\Http\Controllers\Api\PerformanceController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminPerformanceController;
@@ -10,6 +12,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\LeaveController;
 use Illuminate\Support\Facades\Route;
 
+
 // ══════════════════════════════════════════
 // PUBLIC ROUTES (tidak perlu token)
 // ══════════════════════════════════════════
@@ -17,6 +20,10 @@ Route::post('/login',        [AuthController::class, 'login']);
 Route::post('/register',     [AuthController::class, 'register']);
 Route::post('/admin/login',  [AuthController::class, 'adminLogin']);
 Route::post('/verify_token', [AuthController::class, 'verifyToken']);
+
+// Face — PUBLIC karena dipanggil sebelum user login
+Route::get('/face/profiles', [FaceController::class, 'allProfiles']);
+Route::post('/face/login',   [FaceLoginController::class, 'login']);
 
 // ══════════════════════════════════════════
 // PROTECTED ROUTES — semua pakai auth.token
@@ -30,23 +37,22 @@ Route::middleware('auth.token')->group(function () {
     Route::post('/profile/change-password', [AuthController::class, 'changePassword']);
 
     // ══════════════════════════════════════════
-    // USER ROUTES — ABSENSI
+    // USER ROUTES — ABSENSI (face-based, tanpa foto)
     // ══════════════════════════════════════════
-    Route::post('/attendance/check-in',         [AttendanceController::class, 'checkIn']);
-    Route::post('/attendance/check-out',        [AttendanceController::class, 'checkOut']);
-    Route::get('/attendance/today',             [AttendanceController::class, 'todayStatus']);
-    Route::get('/attendance/my-history',        [AttendanceController::class, 'myHistory']);
-    Route::get('/attendance/photo/{id}/{type}', [AttendanceController::class, 'servePhoto']);
+    Route::post('/attendance/check-in',  [AttendanceController::class, 'checkIn']);
+    Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
+    Route::get('/attendance/today',      [AttendanceController::class, 'todayStatus']);
+    Route::get('/attendance/my-history', [AttendanceController::class, 'myHistory']);
 
     // ══════════════════════════════════════════
     // USER ROUTES — PERFORMA, SANKSI, TUGAS
     // ══════════════════════════════════════════
-    Route::get('/performance/my', [PerformanceController::class, 'myPerformance']);
-    Route::get('/sanctions/my',   [PerformanceController::class, 'mySanctions']);
-    Route::get('/tasks/my',       [PerformanceController::class, 'myTasks']);
-    Route::delete('/performance/{id}',        [PerformanceController::class, 'deleteReview']);
-    Route::post('/sanctions/{id}/complete',   [PerformanceController::class, 'completeSanction']);
-    Route::post('/tasks/{id}/complete',       [PerformanceController::class, 'completeTask']);
+    Route::get('/performance/my',           [PerformanceController::class, 'myPerformance']);
+    Route::delete('/performance/{id}',      [PerformanceController::class, 'deleteReview']);
+    Route::get('/sanctions/my',             [PerformanceController::class, 'mySanctions']);
+    Route::post('/sanctions/{id}/complete', [PerformanceController::class, 'completeSanction']);
+    Route::get('/tasks/my',                 [PerformanceController::class, 'myTasks']);
+    Route::post('/tasks/{id}/complete',     [PerformanceController::class, 'completeTask']);
 
     // ══════════════════════════════════════════
     // USER ROUTES — IZIN
@@ -75,20 +81,22 @@ Route::middleware('auth.token')->group(function () {
         // Performa
         Route::get('performance/{userId}',  [AdminPerformanceController::class, 'userHistory']);
         Route::post('performance/{userId}', [AdminPerformanceController::class, 'store']);
-        Route::delete('/performance/{id}',        [PerformanceController::class, 'deleteReview']);
 
-// Selesaikan sanksi & upload foto bukti
-Route::post('/sanctions/{id}/complete',   [PerformanceController::class, 'completeSanction']);
+        // Sanksi — STATIC routes wajib di atas wildcard agar tidak bentrok
+        Route::get('sanctions/completed',      [AdminPerformanceController::class, 'completedSanctions']);
+        Route::post('sanctions/{id}/seen',     [AdminPerformanceController::class, 'markSanctionSeen']);
+        Route::post('sanction/{userId}',       [AdminPerformanceController::class, 'giveSanction']);
 
-// Selesaikan tugas & upload foto bukti
-Route::post('/tasks/{id}/complete',       [PerformanceController::class, 'completeTask']);
+        // Tugas — STATIC routes wajib di atas wildcard agar tidak bentrok
+        Route::get('tasks/completed',          [AdminPerformanceController::class, 'completedTasks']);
+        Route::post('tasks/{id}/seen',         [AdminPerformanceController::class, 'markTaskSeen']);
+        Route::post('task/{userId}',           [AdminPerformanceController::class, 'giveTask']);
+        Route::put('task/{taskId}/done',       [AdminPerformanceController::class, 'markTaskDone']);
 
-        // Sanksi
-        Route::post('sanction/{userId}', [AdminPerformanceController::class, 'giveSanction']);
-
-        // Tugas
-        Route::post('task/{userId}',     [AdminPerformanceController::class, 'giveTask']);
-        Route::put('task/{taskId}/done', [AdminPerformanceController::class, 'markTaskDone']);
+        // Face Management
+        Route::get('face/status',             [FaceController::class, 'status']);
+        Route::post('face/enroll/{userId}',   [FaceController::class, 'enroll']);
+        Route::delete('face/delete/{userId}', [FaceController::class, 'delete']);
 
         // Jabatan
         Route::get('positions',              [PositionController::class, 'index']);
@@ -98,11 +106,12 @@ Route::post('/tasks/{id}/complete',       [PerformanceController::class, 'comple
         Route::post('positions/{id}/assign', [PositionController::class, 'assign']);
         Route::post('positions/{id}/revoke', [PositionController::class, 'revoke']);
 
-        // List pegawai (untuk dropdown)
+        // List pegawai
         Route::get('employees', [AdminPerformanceController::class, 'employees']);
 
         // Izin pegawai
         Route::get('leaves', [LeaveController::class, 'adminIndex']);
+
     });
 
 }); // end auth.token

@@ -12,19 +12,22 @@ class Sanction extends Model
         'type',
         'reason',
         'sanction_date',
+        'proof_photo',
+        'completed_at',
+        'admin_seen',
     ];
 
     protected $casts = [
         'sanction_date' => 'date',
+        'completed_at'  => 'datetime',
+        'admin_seen'    => 'boolean',
     ];
 
-    // Pegawai yang kena sanksi
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // Admin yang memberi sanksi
     public function giver()
     {
         return $this->belongsTo(User::class, 'given_by');

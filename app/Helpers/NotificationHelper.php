@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\Notification;
+use App\Models\User;
 
 class NotificationHelper
 {
@@ -63,5 +64,54 @@ class NotificationHelper
             'Tugas Baru Diberikan',
             "Kamu mendapat tugas baru: \"{$title}\".{$dueTxt}"
         );
+    }
+
+    /**
+     * Notifikasi ke SEMUA ADMIN ketika pegawai menyelesaikan sanksi.
+     */
+    public static function sanctionCompleted(int $userId, int $sanctionId, string $type): void
+    {
+        $pegawai   = User::find($userId);
+        $typeLabel = match($type) {
+            'warning'            => 'Peringatan',
+            'mandatory_overtime' => 'Lembur Wajib',
+            'disciplinary_note'  => 'Catatan Disiplin',
+            default              => 'Sanksi',
+        };
+
+        $name = $pegawai?->name ?? 'Pegawai';
+
+        // Kirim ke semua admin
+        $admins = User::where('role', 'admin')->pluck('id');
+        foreach ($admins as $adminId) {
+            Notification::create_for(
+                $adminId,
+                'success',
+                'sanction',
+                'Sanksi Diselesaikan',
+                "{$name} telah menyelesaikan sanksi '{$typeLabel}'. Periksa foto buktinya."
+            );
+        }
+    }
+
+    /**
+     * Notifikasi ke SEMUA ADMIN ketika pegawai menyelesaikan tugas.
+     */
+    public static function taskCompleted(int $userId, int $taskId, string $taskTitle): void
+    {
+        $pegawai = User::find($userId);
+        $name    = $pegawai?->name ?? 'Pegawai';
+
+        // Kirim ke semua admin
+        $admins = User::where('role', 'admin')->pluck('id');
+        foreach ($admins as $adminId) {
+            Notification::create_for(
+                $adminId,
+                'success',
+                'task',
+                'Tugas Diselesaikan',
+                "{$name} telah menyelesaikan tugas \"{$taskTitle}\". Periksa foto buktinya."
+            );
+        }
     }
 }

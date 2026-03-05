@@ -69,7 +69,17 @@ class AuthController extends Controller
             'last_name'  => 'required|string|max:255',
             'email'      => 'required|email|unique:users,email',
             'password'   => 'required|min:8|confirmed',
+        ], [
+            'first_name.required' => 'Nama depan wajib diisi.',
+            'last_name.required'  => 'Nama belakang wajib diisi.',
+            'email.required'      => 'Email wajib diisi.',
+            'email.email'         => 'Format email tidak valid.',
+            'email.unique'        => 'Email sudah terdaftar.',
+            'password.required'   => 'Password wajib diisi.',
+            'password.min'        => 'Password minimal 8 karakter.',
+            'password.confirmed'  => 'Konfirmasi password tidak cocok.',
         ]);
+
         $user = User::create([
             'name'      => $request->first_name . ' ' . $request->last_name,
             'email'     => $request->email,
@@ -91,6 +101,12 @@ class AuthController extends Controller
             'bio'       => 'sometimes|nullable|string|max:500',
             'job_title' => 'sometimes|nullable|string|max:100',
             'company'   => 'sometimes|nullable|string|max:100',
+        ], [
+            'name.max'      => 'Nama maksimal 255 karakter.',
+            'phone.max'     => 'Nomor telepon maksimal 20 karakter.',
+            'bio.max'       => 'Bio maksimal 500 karakter.',
+            'job_title.max' => 'Jabatan maksimal 100 karakter.',
+            'company.max'   => 'Nama perusahaan maksimal 100 karakter.',
         ]);
 
         $updateData = array_filter(
@@ -114,29 +130,32 @@ class AuthController extends Controller
         $request->validate([
             'current_password' => 'required',
             'new_password'     => 'required|min:8|confirmed',
+        ], [
+            'current_password.required' => 'Password lama wajib diisi.',
+            'new_password.required'     => 'Password baru wajib diisi.',
+            'new_password.min'          => 'Password baru minimal 8 karakter.',
+            'new_password.confirmed'    => 'Konfirmasi password baru tidak cocok.',
         ]);
 
-        // Ambil password langsung dari DB untuk menghindari efek cast
         $currentHashedPassword = DB::table('users')->where('id', $user->id)->value('password');
 
         if (!Hash::check($request->current_password, $currentHashedPassword)) {
             return response()->json([
-                'errors' => ['current_password' => ['Current password is incorrect.']]
+                'errors' => ['current_password' => ['Password lama tidak sesuai.']]
             ], 422);
         }
 
         if (Hash::check($request->new_password, $currentHashedPassword)) {
             return response()->json([
-                'errors' => ['new_password' => ['New password must be different from current password.']]
+                'errors' => ['new_password' => ['Password baru tidak boleh sama dengan password lama.']]
             ], 422);
         }
 
-        // Update password langsung ke DB agar tidak di-hash dua kali
         DB::table('users')->where('id', $user->id)->update([
             'password' => Hash::make($request->new_password)
         ]);
 
-        return response()->json(['message' => 'Password changed successfully']);
+        return response()->json(['message' => 'Password berhasil diubah']);
     }
 
     public function uploadAvatar(Request $request)
@@ -144,7 +163,14 @@ class AuthController extends Controller
         $user = $this->getUserFromToken($request);
         if (!$user) return response()->json(['errors' => ['auth' => 'Unauthorized']], 401);
 
-        $request->validate(['avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048']);
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ], [
+            'avatar.required' => 'Foto profil wajib dipilih.',
+            'avatar.image'    => 'File harus berupa gambar.',
+            'avatar.mimes'    => 'Format foto harus jpg, jpeg, png, atau webp.',
+            'avatar.max'      => 'Ukuran foto maksimal 2MB.',
+        ]);
 
         if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
             Storage::disk('public')->delete($user->avatar);
@@ -156,7 +182,7 @@ class AuthController extends Controller
         $user->refresh();
 
         return response()->json([
-            'message'    => 'Avatar berhasil diupload',
+            'message'    => 'Foto profil berhasil diupload',
             'avatar'     => $user->avatar,
             'avatar_url' => asset('storage/' . $user->avatar),
             'user'       => $user,
