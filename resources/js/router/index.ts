@@ -5,6 +5,7 @@ import {
 } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useConfigStore } from "@/stores/config";
+import JwtService from "@/core/services/JwtService";
 
 const routes: Array<RouteRecordRaw> = [
   // ===== ADMIN ROUTES =====
@@ -160,7 +161,6 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import("@/views/user/UserSettings.vue"),
         meta: { pageTitle: "Settings", middleware: "auth-user" },
       },
-      // ✅ ROUTE BARU: Absen Pulang via face recognition
       {
         path: "/user/attendance/check-out",
         name: "user-check-out",
@@ -249,18 +249,28 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore();
+  const authStore   = useAuthStore();
   const configStore = useConfigStore();
 
   document.title = `${to.meta.pageTitle ?? "Page"} - ${import.meta.env.VITE_APP_NAME}`;
   configStore.resetLayoutConfig();
 
-  const publicPages = ["sign-in", "sign-up", "password-reset", "404", "500"];
+  const publicPages  = ["sign-in", "sign-up", "password-reset", "404", "500"];
   const isPublicPage = publicPages.includes(to.name as string);
 
-  // Hanya panggil verifyAuth jika belum authenticated
-  if (!isPublicPage && !authStore.isAuthenticated) {
-    await authStore.verifyAuth();
+  if (!isPublicPage) {
+    const token = JwtService.getToken();
+
+    if (!token) {
+      // Tidak ada token → langsung ke sign-in
+      return next({ name: "sign-in" });
+    }
+
+    // ✅ Ada token tapi user.role kosong = kondisi setelah refresh
+    // Wajib verifyAuth dulu agar user.value terisi sebelum cek role
+    if (!authStore.user?.role) {
+      await authStore.verifyAuth();
+    }
   }
 
   if (to.meta.middleware === "auth") {

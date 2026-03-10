@@ -114,9 +114,16 @@
             <div class="fr-result-time">{{ currentTime }}</div>
           </div>
           <div class="fr-result-icon">
-            <svg v-if="attendanceResult.type === 'check-in'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#17c653" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            <svg v-else-if="attendanceResult.type === 'check-out'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1b84ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffa500" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <!-- Check-in icon -->
+            <svg v-if="attendanceResult.type === 'check-in'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#17c653" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+              <polyline points="10 17 15 12 10 7"/>
+              <line x1="15" y1="12" x2="3" y2="12"/>
+            </svg>
+            <!-- Already done icon -->
+            <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffa500" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
           </div>
         </div>
 
@@ -324,13 +331,12 @@ export default defineComponent({
 
     const processLogin = async (profile: any) => {
       try {
+        // 1. Login via face
         const loginRes = await publicHttp.post('/face/login', { user_id: profile.user_id })
         const userData = loginRes.data
 
-        // 1. Simpan auth + token dulu
+        // 2. Simpan auth + token
         authStore.setAuth(userData)
-
-        // 2. Tunggu token tersimpan ke localStorage
         await nextTick()
 
         const http = authHttp(userData.api_token)
@@ -342,16 +348,20 @@ export default defineComponent({
         let msg = '', type = 'check-in'
 
         if (!today || !today.check_in_time) {
+          // ✅ Belum check-in hari ini → lakukan check-in
           const r = await http.post('/attendance/check-in', {})
-          msg = r.data?.message ?? 'Check-in berhasil'
+          msg  = r.data?.message ?? 'Check-in berhasil'
           type = 'check-in'
-        } else if (!today.check_out_time) {
-          const r = await http.post('/attendance/check-out', {})
-          msg = r.data?.message ?? 'Check-out berhasil'
-          type = 'check-out'
         } else {
-          msg = 'Absensi hari ini sudah lengkap ✅'
-          type = 'done'
+          // ✅ Sudah check-in → hanya login, JANGAN check-out dari sini
+          // Check-out dilakukan di halaman /user/attendance/check-out
+          if (today.check_out_time) {
+            msg  = 'Absensi hari ini sudah lengkap ✅'
+            type = 'done'
+          } else {
+            msg  = `Selamat datang kembali! Check-in: ${today.check_in_time}`
+            type = 'check-in'
+          }
         }
 
         recognizedUser.value   = { name: profile.name, avatar: profile.avatar }
@@ -368,8 +378,8 @@ export default defineComponent({
 
       } catch (e: any) {
         console.error('[processLogin] error:', e)
-        faceError.value = e?.response?.data?.message ?? 'Gagal memproses. Coba lagi.'
-        successLock = false
+        faceError.value  = e?.response?.data?.message ?? 'Gagal memproses. Coba lagi.'
+        successLock      = false
         faceStatus.value = 'detecting'
         confidence.value = 0
         setTimeout(() => { faceError.value = '' }, 3000)
@@ -437,7 +447,7 @@ export default defineComponent({
 .fr-scanline { position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #1b84ff, transparent); box-shadow: 0 0 8px #1b84ff; animation: fr-scan 2s linear infinite; pointer-events: none; }
 .fr-face-badge { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(10,12,16,0.85); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600; color: #aaaabc; white-space: nowrap; max-width: 90%; transition: all 0.3s; }
 .fr-face-badge.success  { color: #17c653; border-color: rgba(23,198,83,0.3); }
-.fr-face-badge.unknown  { color: #ff6b6b; border-color: rgba(255,107,107,0.3); }
+.fr-face-badge.unknown  { border-color: rgba(255,107,107,0.3); }
 .fr-face-badge.matching { color: #ffa500; border-color: rgba(255,165,0,0.3); }
 .fr-confidence { display: flex; align-items: center; gap: 10px; }
 .fr-confidence-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
@@ -448,7 +458,6 @@ export default defineComponent({
 .fr-result-card { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 14px; animation: fr-slideup 0.4s ease both; }
 @keyframes fr-slideup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .fr-result-card.check-in  { background: rgba(23,198,83,0.08);  border: 1px solid rgba(23,198,83,0.2); }
-.fr-result-card.check-out { background: rgba(27,132,255,0.08); border: 1px solid rgba(27,132,255,0.2); }
 .fr-result-card.done      { background: rgba(255,165,0,0.08);  border: 1px solid rgba(255,165,0,0.2); }
 .fr-result-avatar { flex-shrink: 0; }
 .fr-result-img      { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }

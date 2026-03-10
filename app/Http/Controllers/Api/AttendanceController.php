@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -14,6 +15,23 @@ class AttendanceController extends Controller
         $header = $request->header('Authorization', '');
         $token  = preg_replace('/^(Token|Bearer)\s+/i', '', trim($header));
         return \App\Models\User::where('api_token', $token)->first();
+    }
+
+    // Simpan foto base64 ke storage/public/attendance-photos/
+    private function savePhoto(?string $base64): ?string
+    {
+        if (!$base64) return null;
+        try {
+            if (!str_contains($base64, ',')) return null;
+            $imageData = explode(',', $base64, 2)[1];
+            $decoded   = base64_decode($imageData);
+            if (!$decoded) return null;
+            $filename = 'attendance-photos/' . uniqid('att_', true) . '.jpg';
+            Storage::disk('public')->put($filename, $decoded);
+            return $filename;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     // POST /api/attendance/check-in
@@ -28,17 +46,20 @@ class AttendanceController extends Controller
             return response()->json(['message' => 'Kamu sudah absen masuk hari ini'], 422);
         }
 
-        $now        = Carbon::now();
-        $shiftStart = Carbon::today()->setTime(7, 0, 0);
+        $now         = Carbon::now();
+        $shiftStart  = Carbon::today()->setTime(7, 0, 0);
         $status      = $now->greaterThan($shiftStart) ? 'late' : 'on_time';
         $lateMinutes = $status === 'late' ? (int) $now->diffInMinutes($shiftStart) : 0;
 
+        $photoPath = $this->savePhoto($request->input('photo'));
+
         $attendance = Attendance::create([
-            'user_id'       => $user->id,
-            'date'          => $today,
-            'check_in_time' => $now->toTimeString(),
-            'status'        => $status,
-            'late_minutes'  => $lateMinutes,
+            'user_id'        => $user->id,
+            'date'           => $today,
+            'check_in_time'  => $now->toTimeString(),
+            'check_in_photo' => $photoPath,
+            'status'         => $status,
+            'late_minutes'   => $lateMinutes,
         ]);
 
         return response()->json([
@@ -82,8 +103,11 @@ class AttendanceController extends Controller
             $overtimeMinutes = (int) $now->diffInMinutes($shiftEnd);
         }
 
+        $photoPath = $this->savePhoto($request->input('photo'));
+
         $attendance->update([
             'check_out_time'   => $now->toTimeString(),
+            'check_out_photo'  => $photoPath,
             'checkout_status'  => $checkoutStatus,
             'overtime_minutes' => $overtimeMinutes,
         ]);

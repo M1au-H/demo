@@ -213,6 +213,21 @@ const MODEL_URL      = '/models'
 const API_BASE       = (import.meta.env.VITE_APP_API_URL as string || '/api').replace(/\/$/, '')
 const THRESHOLD      = 0.45
 
+// ✅ Capture foto dari video sebagai base64 JPEG
+function capturePhoto(video: HTMLVideoElement): string | null {
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width  = video.videoWidth  || 480
+    canvas.height = video.videoHeight || 360
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL('image/jpeg', 0.8)
+  } catch (_) { return null }
+}
+
 export default defineComponent({
   name: 'sign-in',
   components: { Field, VForm, ErrorMessage },
@@ -289,10 +304,7 @@ export default defineComponent({
 
     // ── Mode switcher ──
     const mode = ref<'face' | 'admin'>('face')
-
-    const switchMode = (m: 'face' | 'admin') => {
-      mode.value = m
-    }
+    const switchMode = (m: 'face' | 'admin') => { mode.value = m }
 
     // ── Face recognition state ──
     const faceVideo         = ref<HTMLVideoElement | null>(null)
@@ -312,7 +324,6 @@ export default defineComponent({
     let faceProfiles   : { user_id: number; name: string; avatar: string | null; descriptor: number[] }[] = []
     let modelsLoaded   = false
 
-    // Load AI models
     const loadModels = async () => {
       if (modelsLoaded) { faceModelLoading.value = false; return }
       faceModelLoading.value = true
@@ -332,8 +343,6 @@ export default defineComponent({
       }
     }
 
-    // Load face profiles dari backend
-    // avatar sudah berupa URL lengkap: http://127.0.0.1:8000/storage/avatars/...
     const loadProfiles = async () => {
       try {
         const { data } = await axios.get(`${API_BASE}/face/profiles`)
@@ -344,93 +353,72 @@ export default defineComponent({
       }
     }
 
-    // Start kamera
     const startFaceCamera = async () => {
       try {
         faceStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 480, height: 360, facingMode: 'user' }
         })
-
         let waited = 0
         while (!faceVideo.value && waited < 3000) {
-          await new Promise(r => setTimeout(r, 50))
-          waited += 50
+          await new Promise(r => setTimeout(r, 50)); waited += 50
         }
-
         if (!faceVideo.value) {
-          faceMsg.value     = 'Elemen video tidak ditemukan. Refresh halaman.'
-          faceMsgType.value = 'err'
-          return
+          faceMsg.value = 'Elemen video tidak ditemukan. Refresh halaman.'
+          faceMsgType.value = 'err'; return
         }
-
         faceVideo.value.srcObject = faceStream
         await new Promise<void>(res => {
-          faceVideo.value!.onloadedmetadata = () => res()
-          setTimeout(res, 3000)
+          faceVideo.value!.onloadedmetadata = () => res(); setTimeout(res, 3000)
         })
         await faceVideo.value.play()
         faceCamStatus.value = 'detecting'
         startDetectLoop()
       } catch (e: any) {
-        faceMsg.value     = 'Gagal mengakses kamera: ' + (e?.message ?? String(e))
+        faceMsg.value = 'Gagal mengakses kamera: ' + (e?.message ?? String(e))
         faceMsgType.value = 'err'
       }
     }
 
-    // Detection loop
     const startDetectLoop = () => {
       if (detectInterval) clearInterval(detectInterval)
       detectInterval = window.setInterval(async () => {
         if (!faceVideo.value || faceVideo.value.readyState < 2) return
         const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
         const det  = await faceapi.detectSingleFace(faceVideo.value, opts).withFaceLandmarks(true)
-
         if (faceCamStatus.value === 'processing' || faceCamStatus.value === 'success') return
         faceCamStatus.value = det ? 'ready' : 'no_face'
-
-        const canvas = faceCanvas.value
-        const video  = faceVideo.value
+        const canvas = faceCanvas.value; const video = faceVideo.value
         if (canvas && video) {
-          canvas.width  = video.videoWidth
-          canvas.height = video.videoHeight
+          canvas.width = video.videoWidth; canvas.height = video.videoHeight
           const ctx = canvas.getContext('2d')!
           ctx.clearRect(0, 0, canvas.width, canvas.height)
           if (det) {
             const box = det.detection.box
-            ctx.strokeStyle = '#17c653'
-            ctx.lineWidth   = 2.5
-            ctx.shadowColor = '#17c653'
-            ctx.shadowBlur  = 8
+            ctx.strokeStyle = '#17c653'; ctx.lineWidth = 2.5
+            ctx.shadowColor = '#17c653'; ctx.shadowBlur = 8
             ctx.strokeRect(box.x, box.y, box.width, box.height)
           }
         }
-
         if (det && !autoRecTimer && !faceRecognizing.value) {
           autoRecTimer = window.setTimeout(() => {
             autoRecTimer = null
             if (faceCamStatus.value === 'ready') recognizeFace()
           }, 1500)
         }
-        if (!det && autoRecTimer) {
-          clearTimeout(autoRecTimer)
-          autoRecTimer = null
-        }
+        if (!det && autoRecTimer) { clearTimeout(autoRecTimer); autoRecTimer = null }
       }, 500)
     }
 
     const euclidean = (a: number[], b: number[]): number => {
-      let sum = 0
-      for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2
-      return Math.sqrt(sum)
+      let sum = 0; for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2; return Math.sqrt(sum)
     }
 
     // ─── RECOGNIZE & ABSEN ───
     const recognizeFace = async () => {
       if (!faceVideo.value || faceRecognizing.value) return
       if (faceProfiles.length === 0) {
-        faceMsg.value     = 'Belum ada wajah terdaftar di sistem.'
-        faceMsgType.value = 'info'
-        return
+        faceMsg.value = 'Belum ada wajah terdaftar di sistem.'
+        faceMsgType.value = 'info'; return
       }
 
       faceRecognizing.value = true
@@ -445,15 +433,11 @@ export default defineComponent({
           .withFaceDescriptor()
 
         if (!det) {
-          faceCamStatus.value   = 'no_face'
-          faceMsg.value         = 'Wajah tidak terdeteksi. Coba lagi.'
-          faceMsgType.value     = 'err'
-          faceRecognizing.value = false
-          return
+          faceCamStatus.value = 'no_face'; faceMsg.value = 'Wajah tidak terdeteksi. Coba lagi.'
+          faceMsgType.value = 'err'; faceRecognizing.value = false; return
         }
 
         const descriptor = Array.from(det.descriptor)
-
         let bestMatch: typeof faceProfiles[0] | null = null
         let bestDist = Infinity
         for (const profile of faceProfiles) {
@@ -462,34 +446,25 @@ export default defineComponent({
         }
 
         if (!bestMatch || bestDist > THRESHOLD) {
-          faceCamStatus.value   = 'failed'
-          faceMsg.value         = `Wajah tidak dikenali (jarak: ${bestDist.toFixed(3)})`
-          faceMsgType.value     = 'err'
-          faceRecognizing.value = false
-          setTimeout(() => { faceCamStatus.value = 'detecting' }, 2000)
-          return
+          faceCamStatus.value = 'failed'
+          faceMsg.value = `Wajah tidak dikenali (jarak: ${bestDist.toFixed(3)})`
+          faceMsgType.value = 'err'; faceRecognizing.value = false
+          setTimeout(() => { faceCamStatus.value = 'detecting' }, 2000); return
         }
 
-        // Wajah dikenali — panggil face/login
         faceCamStatus.value = 'success'
 
-        const { data } = await axios.post(`${API_BASE}/face/login`, {
-          user_id: bestMatch.user_id,
-        })
+        // ✅ CAPTURE FOTO sebelum stop kamera
+        const photo = capturePhoto(faceVideo.value)
 
-        // Simpan ke auth store
+        const { data } = await axios.post(`${API_BASE}/face/login`, { user_id: bestMatch.user_id })
         store.setAuth(data)
 
-        // ✅ PERBAIKAN: gunakan bestMatch.avatar (URL lengkap dari /face/profiles)
-        // bukan data.avatar (path mentah dari database, misal: "avatars/xxx.jpg")
-        recognizedUser.value = {
-          name:   bestMatch.name,
-          avatar: bestMatch.avatar,
-        }
-        attendanceMsg.value = 'Absensi berhasil'
-        faceMsg.value       = ''
+        recognizedUser.value = { name: bestMatch.name, avatar: bestMatch.avatar }
+        attendanceMsg.value  = 'Absensi berhasil'
+        faceMsg.value        = ''
 
-        // Proses absensi otomatis
+        // Proses absensi otomatis + kirim foto
         try {
           const http = axios.create({
             baseURL: API_BASE,
@@ -499,10 +474,12 @@ export default defineComponent({
           const today    = todayRes.data?.data
 
           if (!today || !today.check_in_time) {
-            const r = await http.post('/attendance/check-in', {})
+            // ✅ Kirim foto bersama check-in
+            const r = await http.post('/attendance/check-in', { photo })
             attendanceMsg.value = r.data?.message ?? 'Check-in berhasil'
           } else if (!today.check_out_time) {
-            const r = await http.post('/attendance/check-out', {})
+            // ✅ Kirim foto bersama check-out
+            const r = await http.post('/attendance/check-out', { photo })
             attendanceMsg.value = r.data?.message ?? 'Check-out berhasil'
           } else {
             attendanceMsg.value = 'Absensi hari ini sudah lengkap ✅'
@@ -511,17 +488,13 @@ export default defineComponent({
           attendanceMsg.value = 'Absensi berhasil'
         }
 
-        // Stop kamera lalu redirect
         stopFaceCamera()
-        setTimeout(() => {
-          router.push({ name: 'user-dashboard' })
-        }, 2500)
+        setTimeout(() => { router.push({ name: 'user-dashboard' }) }, 2500)
 
       } catch (e: any) {
-        faceCamStatus.value   = 'failed'
-        faceMsg.value         = e?.response?.data?.message ?? 'Gagal proses absensi.'
-        faceMsgType.value     = 'err'
-        faceRecognizing.value = false
+        faceCamStatus.value = 'failed'
+        faceMsg.value = e?.response?.data?.message ?? 'Gagal proses absensi.'
+        faceMsgType.value = 'err'; faceRecognizing.value = false
         setTimeout(() => { faceCamStatus.value = 'detecting' }, 2000)
       }
     }
@@ -534,31 +507,21 @@ export default defineComponent({
     }
 
     const initFace = async () => {
-      faceMsg.value         = ''
-      recognizedUser.value  = null
-      faceCamStatus.value   = 'detecting'
-      faceRecognizing.value = false
-      await loadModels()
-      await loadProfiles()
+      faceMsg.value = ''; recognizedUser.value = null
+      faceCamStatus.value = 'detecting'; faceRecognizing.value = false
+      await loadModels(); await loadProfiles()
       await new Promise(r => setTimeout(r, 100))
       await startFaceCamera()
     }
 
     onMounted(() => { initFace() })
     onUnmounted(() => { stopFaceCamera() })
-
-    watch(mode, (val) => {
-      if (val === 'admin') stopFaceCamera()
-      else initFace()
-    })
+    watch(mode, (val) => { if (val === 'admin') stopFaceCamera(); else initFace() })
 
     return {
-      // admin
       submitButton, isLoading, showPwd, rememberMe,
       lastEmail, initialValues, useLastEmail, loginSchema, onSubmitLogin,
-      // mode
       mode, switchMode,
-      // face
       faceVideo, faceCanvas,
       faceModelLoading, faceModelProgress,
       faceCamStatus, faceMsg, faceMsgType,
@@ -570,99 +533,51 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.si-wrap {
-  width: 100%;
-  animation: si-fadeup 0.4s ease both;
-}
-@keyframes si-fadeup {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+.si-wrap { width: 100%; animation: si-fadeup 0.4s ease both; }
+@keyframes si-fadeup { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .si-heading { font-size: 28px; font-weight: 800; line-height: 1.2; letter-spacing: -0.025em; color: #f0f0f5; margin-bottom: 10px; }
 .si-heading-red { color: #e8262a; }
 .si-sub { font-size: 13px; color: #55555e; margin-bottom: 20px; }
 .si-link { color: #1b84ff; font-weight: 600; text-decoration: none; transition: color 0.15s; }
 .si-link:hover { color: #5aabff; }
-
-/* ── Tabs ── */
 .si-tabs { display: flex; gap: 8px; margin-bottom: 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 5px; }
-.si-tab {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
-  background: transparent; border: none; color: #55555e;
-  font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 600;
-  padding: 9px 12px; border-radius: 8px; cursor: pointer; transition: all 0.18s;
-}
+.si-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; background: transparent; border: none; color: #55555e; font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 600; padding: 9px 12px; border-radius: 8px; cursor: pointer; transition: all 0.18s; }
 .si-tab.active { background: #e8262a; color: #fff; box-shadow: 0 4px 12px rgba(232,38,42,0.3); }
 .si-tab:not(.active):hover { background: rgba(255,255,255,0.06); color: #aaaabc; }
-
-/* ── Face section ── */
 .si-face-section { }
 .si-face-loading { display: flex; align-items: center; gap: 10px; color: #55555e; padding: 40px 0; justify-content: center; font-size: 13px; }
-
-.si-cam-wrap {
-  position: relative; width: 100%; aspect-ratio: 4/3;
-  background: #0a0c10; border-radius: 14px; overflow: hidden;
-  border: 2px solid rgba(255,255,255,0.07);
-  margin-bottom: 14px;
-  transition: border-color 0.3s, box-shadow 0.3s;
-}
+.si-cam-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #0a0c10; border-radius: 14px; overflow: hidden; border: 2px solid rgba(255,255,255,0.07); margin-bottom: 14px; transition: border-color 0.3s, box-shadow 0.3s; }
 .si-cam-wrap.ready     { border-color: #17c653; box-shadow: 0 0 20px rgba(23,198,83,0.18); }
 .si-cam-wrap.success   { border-color: #17c653; box-shadow: 0 0 30px rgba(23,198,83,0.3); }
 .si-cam-wrap.failed    { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(255,107,107,0.18); }
 .si-cam-wrap.no_face   { border-color: #ffa500; }
 .si-cam-wrap.processing { border-color: #1b84ff; box-shadow: 0 0 20px rgba(27,132,255,0.2); }
-
 .si-cam-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
 .si-cam-canvas { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
-
 .si-corner { position: absolute; width: 20px; height: 20px; border-color: #e8262a; border-style: solid; border-width: 0; }
 .si-tl { top: 8px;    left: 8px;  border-top-width: 2px;    border-left-width: 2px;  border-top-left-radius: 4px; }
 .si-tr { top: 8px;    right: 8px; border-top-width: 2px;    border-right-width: 2px; border-top-right-radius: 4px; }
 .si-bl { bottom: 8px; left: 8px;  border-bottom-width: 2px; border-left-width: 2px;  border-bottom-left-radius: 4px; }
 .si-br { bottom: 8px; right: 8px; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 4px; }
-
-.si-cam-badge {
-  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-  background: rgba(10,12,16,0.85); backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,255,255,0.07); border-radius: 20px;
-  padding: 5px 14px; font-size: 12px; font-weight: 600; color: #aaaabc;
-  white-space: nowrap; transition: all 0.2s;
-}
+.si-cam-badge { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(10,12,16,0.85); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 600; color: #aaaabc; white-space: nowrap; transition: all 0.2s; }
 .si-cam-badge.ready     { color: #17c653; border-color: rgba(23,198,83,0.3); }
 .si-cam-badge.success   { color: #17c653; border-color: rgba(23,198,83,0.4); }
 .si-cam-badge.no_face   { color: #ffa500; border-color: rgba(255,165,0,0.3); }
 .si-cam-badge.failed    { color: #ff6b6b; border-color: rgba(255,107,107,0.3); }
 .si-cam-badge.processing { color: #1b84ff; border-color: rgba(27,132,255,0.3); }
-
-.si-recognized-overlay {
-  position: absolute; inset: 0;
-  background: rgba(10,12,16,0.75); backdrop-filter: blur(4px);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  animation: si-fadeup 0.3s ease both;
-}
+.si-recognized-overlay { position: absolute; inset: 0; background: rgba(10,12,16,0.75); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; animation: si-fadeup 0.3s ease both; }
 .si-rec-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid #17c653; }
 .si-rec-avatar-fallback { width: 72px; height: 72px; border-radius: 50%; background: #e8262a; color: #fff; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 3px solid #17c653; }
 .si-rec-name { font-size: 18px; font-weight: 800; color: #f0f0f5; }
 .si-rec-sub  { font-size: 13px; color: #17c653; font-weight: 600; }
-
 .si-face-msg { padding: 10px 14px; border-radius: 9px; font-size: 12.5px; margin-bottom: 12px; }
 .si-face-msg.ok   { background: rgba(23,198,83,0.08);  color: #17c653; border: 1px solid rgba(23,198,83,0.2); }
 .si-face-msg.err  { background: rgba(255,107,107,0.08); color: #ff6b6b; border: 1px solid rgba(255,107,107,0.2); }
 .si-face-msg.info { background: rgba(27,132,255,0.08);  color: #5aabff; border: 1px solid rgba(27,132,255,0.2); }
-
-.si-face-btn {
-  width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: #e8262a; color: #fff; border: none; border-radius: 10px;
-  font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 700;
-  padding: 13px; cursor: pointer; margin-bottom: 10px;
-  transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
-}
+.si-face-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: #e8262a; color: #fff; border: none; border-radius: 10px; font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 700; padding: 13px; cursor: pointer; margin-bottom: 10px; transition: background 0.18s, box-shadow 0.18s, transform 0.12s; }
 .si-face-btn:hover:not(:disabled) { background: #ff3a3d; box-shadow: 0 8px 24px rgba(232,38,42,0.35); transform: translateY(-1px); }
 .si-face-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-
 .si-face-hint { text-align: center; font-size: 11.5px; color: #3a3a48; margin: 0; }
-
-/* ── Admin form ── */
 .si-field { margin-bottom: 16px; }
 .si-field-top { display: flex; justify-content: space-between; align-items: center; }
 .si-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #55555e; margin-bottom: 7px; }
@@ -670,12 +585,7 @@ export default defineComponent({
 .si-forgot:hover { color: #5aabff; }
 .si-inp-wrap { position: relative; }
 .si-inp-ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #3a3a48; pointer-events: none; display: flex; align-items: center; }
-.si-input {
-  width: 100%; background: #181b22 !important; border: 1.5px solid rgba(255,255,255,0.08) !important;
-  border-radius: 10px !important; color: #e2e2e8 !important; font-family: 'Inter', sans-serif !important;
-  font-size: 13.5px !important; padding: 12px 14px 12px 42px !important; outline: none !important;
-  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s !important;
-}
+.si-input { width: 100%; background: #181b22 !important; border: 1.5px solid rgba(255,255,255,0.08) !important; border-radius: 10px !important; color: #e2e2e8 !important; font-family: 'Inter', sans-serif !important; font-size: 13.5px !important; padding: 12px 14px 12px 42px !important; outline: none !important; transition: border-color 0.18s, box-shadow 0.18s, background 0.18s !important; }
 .si-input::placeholder { color: #3a3a48 !important; }
 .si-input:focus { border-color: #1b84ff !important; background: rgba(27,132,255,0.04) !important; box-shadow: 0 0 0 3px rgba(27,132,255,0.12) !important; }
 .si-input-pwd { padding-right: 44px !important; }

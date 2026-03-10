@@ -51,9 +51,7 @@
                       icon-class="fs-2"
                     />
                   </span>
-                  <span class="menu-title">{{
-                    translate(menuItem.heading)
-                  }}</span>
+                  <span class="menu-title">{{ translate(menuItem.heading) }}</span>
                 </router-link>
               </div>
             </template>
@@ -80,9 +78,7 @@
                     icon-class="fs-2"
                   />
                 </span>
-                <span class="menu-title">{{
-                  translate(menuItem.sectionTitle)
-                }}</span>
+                <span class="menu-title">{{ translate(menuItem.sectionTitle) }}</span>
                 <span class="menu-arrow"></span>
               </span>
               <div
@@ -100,9 +96,7 @@
                       <span class="menu-bullet">
                         <span class="bullet bullet-dot"></span>
                       </span>
-                      <span class="menu-title">{{
-                        translate(item2.heading)
-                      }}</span>
+                      <span class="menu-title">{{ translate(item2.heading) }}</span>
                     </router-link>
                   </div>
                   <div
@@ -116,9 +110,7 @@
                       <span class="menu-bullet">
                         <span class="bullet bullet-dot"></span>
                       </span>
-                      <span class="menu-title">{{
-                        translate(item2.sectionTitle)
-                      }}</span>
+                      <span class="menu-title">{{ translate(item2.sectionTitle) }}</span>
                       <span class="menu-arrow"></span>
                     </span>
                     <div
@@ -136,9 +128,7 @@
                             <span class="menu-bullet">
                               <span class="bullet bullet-dot"></span>
                             </span>
-                            <span class="menu-title">{{
-                              translate(item3.heading)
-                            }}</span>
+                            <span class="menu-title">{{ translate(item3.heading) }}</span>
                           </router-link>
                         </div>
                       </template>
@@ -149,83 +139,7 @@
             </div>
           </template>
         </template>
-
-        <div class="menu-item pt-5">
-          <!--begin:Menu content-->
-          <div class="menu-content">
-            <span class="menu-heading fw-bold text-uppercase fs-7">Help</span>
-          </div>
-          <!--end:Menu content-->
-        </div>
-        <!--begin:Menu item-->
-        <div class="menu-item">
-          <!--begin:Menu link-->
-          <a
-            class="menu-link"
-            href="https://preview.keenthemes.com/metronic8/vue/docs/base/utilities"
-          >
-            <span class="menu-icon">
-              <i
-                v-if="sidebarMenuIcons === 'bootstrap'"
-                class="bi bi-briefcase fs-3"
-              ></i>
-              <KTIcon
-                v-else-if="sidebarMenuIcons === 'keenthemes'"
-                icon-name="rocket"
-                icon-class="fs-2"
-              />
-            </span>
-            <span class="menu-title">Components</span>
-          </a>
-          <!--end:Menu link-->
-        </div>
-        <!--end:Menu item-->
-        <div class="menu-item">
-          <!--begin:Menu link-->
-          <a
-            class="menu-link"
-            href="https://preview.keenthemes.com/metronic8/vue/docs/index"
-          >
-            <span class="menu-icon">
-              <i
-                v-if="sidebarMenuIcons === 'bootstrap'"
-                class="bi bi-box fs-3"
-              ></i>
-              <KTIcon
-                v-else-if="sidebarMenuIcons === 'keenthemes'"
-                icon-name="abstract-26"
-                icon-class="fs-2"
-              />
-            </span>
-            <span class="menu-title">Documentation</span>
-          </a>
-          <!--end:Menu link-->
-        </div>
-        <!--begin:Menu item-->
-        <!--end:Menu item-->
-        <div class="menu-item">
-          <!--begin:Menu link-->
-          <a
-            class="menu-link"
-            href="https://preview.keenthemes.com/metronic8/vue/docs/getting-started/changelog"
-          >
-            <span class="menu-icon">
-              <i
-                v-if="sidebarMenuIcons === 'bootstrap'"
-                class="bi bi-diagram-3 fs-3"
-              ></i>
-              <KTIcon
-                v-else-if="sidebarMenuIcons === 'keenthemes'"
-                icon-name="code"
-                icon-class="fs-2"
-              />
-            </span>
-            <span class="menu-title">Changelog</span>
-          </a>
-          <!--end:Menu link-->
-        </div>
-        <!--begin:Menu item-->
-        <!--end:Menu item-->
+        <!-- HELP section dihapus dari sini -->
       </div>
       <!--end::Menu-->
     </div>
