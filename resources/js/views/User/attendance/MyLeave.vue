@@ -33,6 +33,29 @@
           <textarea v-model="form.reason" class="lv-input lv-textarea" placeholder="Tulis keterangan izin..." rows="3" />
         </div>
 
+        <!-- Surat Dokter Upload -->
+        <div class="lv-field">
+          <label>Surat Dokter <span class="lv-optional">(opsional, jpg/png/pdf maks 5MB)</span></label>
+          <div class="lv-file-wrap" @click="triggerFileInput" @dragover.prevent @drop.prevent="onFileDrop">
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".jpg,.jpeg,.png,.pdf"
+              style="display:none"
+              @change="onFileChange"
+            />
+            <div v-if="!suratDokterFile" class="lv-file-placeholder">
+              <span class="lv-file-icon">📎</span>
+              <span>Klik atau drag file ke sini</span>
+            </div>
+            <div v-else class="lv-file-selected">
+              <span class="lv-file-icon">✅</span>
+              <span>{{ suratDokterFile.name }}</span>
+              <button @click.stop="clearFile" class="lv-file-clear">✕</button>
+            </div>
+          </div>
+        </div>
+
         <div v-if="formError" class="lv-error">{{ formError }}</div>
         <div v-if="formSuccess" class="lv-success">{{ formSuccess }}</div>
 
@@ -62,6 +85,10 @@
               <div class="lv-item-type">{{ typeLabel(leave.type) }}</div>
               <div class="lv-item-date">{{ formatDate(leave.date) }}</div>
               <div v-if="leave.reason" class="lv-item-reason">{{ leave.reason }}</div>
+              <a v-if="leave.surat_dokter" :href="leave.surat_dokter" target="_blank" class="lv-item-surat">
+                📄 Lihat Surat Dokter
+              </a>
+              <span v-else class="lv-item-nosurat">Tidak ada surat dokter</span>
             </div>
           </div>
           <button
@@ -80,6 +107,7 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue'
 import ApiService from '@/core/services/ApiService'
+import axios from 'axios'
 
 export default defineComponent({
   name: 'MyLeave',
@@ -88,16 +116,32 @@ export default defineComponent({
     const todayRaw = new Date().toISOString().split('T')[0]
     const minDate  = todayRaw
 
-    const form = ref({ date: todayRaw, type: '', reason: '' })
-    const submitting   = ref(false)
-    const formError    = ref('')
-    const formSuccess  = ref('')
-    const leaves       = ref<any[]>([])
+    const form           = ref({ date: todayRaw, type: '', reason: '' })
+    const submitting     = ref(false)
+    const formError      = ref('')
+    const formSuccess    = ref('')
+    const leaves         = ref<any[]>([])
     const loadingHistory = ref(true)
+    const suratDokterFile = ref<File | null>(null)
+    const fileInput      = ref<HTMLInputElement | null>(null)
 
-    const typeLabel = (t: string) => ({ sakit: 'Sakit', cuti: 'Cuti Tahunan', keluarga: 'Keperluan Keluarga', mendadak: 'Izin Mendadak' }[t] ?? t)
-    const typeIcon  = (t: string) => ({ sakit: '🤒', cuti: '🏖️', keluarga: '👨‍👩‍👧', mendadak: '⚡' }[t] ?? '📝')
+    const typeLabel  = (t: string) => ({ sakit: 'Sakit', cuti: 'Cuti Tahunan', keluarga: 'Keperluan Keluarga', mendadak: 'Izin Mendadak' }[t] ?? t)
+    const typeIcon   = (t: string) => ({ sakit: '🤒', cuti: '🏖️', keluarga: '👨‍👩‍👧', mendadak: '⚡' }[t] ?? '📝')
     const formatDate = (d: string) => new Date(d).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+    const triggerFileInput = () => fileInput.value?.click()
+    const onFileChange = (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) suratDokterFile.value = file
+    }
+    const onFileDrop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files?.[0]
+      if (file) suratDokterFile.value = file
+    }
+    const clearFile = () => {
+      suratDokterFile.value = null
+      if (fileInput.value) fileInput.value.value = ''
+    }
 
     const fetchLeaves = async () => {
       loadingHistory.value = true
@@ -117,10 +161,26 @@ export default defineComponent({
 
       submitting.value = true
       try {
-        ApiService.setHeader()
-        await ApiService.post('leaves', form.value)
+        // Wajib pakai FormData agar file bisa ter-upload
+        const fd = new FormData()
+        fd.append('date', form.value.date)
+        fd.append('type', form.value.type)
+        fd.append('reason', form.value.reason ?? '')
+        if (suratDokterFile.value) {
+          fd.append('surat_dokter', suratDokterFile.value)
+        }
+
+        const token = localStorage.getItem('api_token') ?? ''
+        await axios.post(`${import.meta.env.VITE_APP_API_URL}/leaves`, fd, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          }
+        })
+
         formSuccess.value = 'Izin berhasil dicatat! 🎉'
         form.value = { date: todayRaw, type: '', reason: '' }
+        clearFile()
         await fetchLeaves()
       } catch (err: any) {
         formError.value = err?.response?.data?.message ?? 'Gagal mengajukan izin.'
@@ -140,7 +200,13 @@ export default defineComponent({
 
     onMounted(() => { fetchLeaves() })
 
-    return { today, todayRaw, minDate, form, submitting, formError, formSuccess, leaves, loadingHistory, typeLabel, typeIcon, formatDate, submitLeave, deleteLeave }
+    return {
+      today, todayRaw, minDate, form, submitting, formError, formSuccess,
+      leaves, loadingHistory, suratDokterFile, fileInput,
+      typeLabel, typeIcon, formatDate,
+      triggerFileInput, onFileChange, onFileDrop, clearFile,
+      submitLeave, deleteLeave
+    }
   }
 })
 </script>
@@ -174,6 +240,26 @@ export default defineComponent({
 .lv-input option { background: #15171e; }
 .lv-textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 
+/* File upload */
+.lv-file-wrap {
+  background: #0d0f14;
+  border: 1.5px dashed rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  display: flex;
+  align-items: center;
+}
+.lv-file-wrap:hover { border-color: rgba(27,132,255,0.4); }
+.lv-file-placeholder { display: flex; align-items: center; gap: 10px; color: #55555e; font-size: 13px; }
+.lv-file-selected { display: flex; align-items: center; gap: 10px; color: #f0f0f5; font-size: 13px; width: 100%; }
+.lv-file-icon { font-size: 20px; }
+.lv-file-clear {
+  margin-left: auto; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2);
+  color: #ff6b6b; border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer;
+}
+
 .lv-btn-submit {
   width: 100%; background: #e8262a; color: #fff;
   border: none; border-radius: 12px; padding: 13px;
@@ -206,6 +292,9 @@ export default defineComponent({
 .lv-item-type { font-size: 14px; font-weight: 600; color: #f0f0f5; }
 .lv-item-date { font-size: 12px; color: #55555e; margin-top: 2px; }
 .lv-item-reason { font-size: 12px; color: #aaaabc; margin-top: 4px; font-style: italic; }
+.lv-item-surat { display: inline-block; margin-top: 4px; font-size: 12px; color: #1b84ff; text-decoration: none; }
+.lv-item-surat:hover { text-decoration: underline; }
+.lv-item-nosurat { font-size: 11px; color: #55555e; margin-top: 4px; display: inline-block; }
 
 .lv-btn-cancel {
   background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2);

@@ -107,8 +107,10 @@ class AdminAttendanceController extends Controller
         return response()->json(['message' => 'Data absensi berhasil diubah.', 'data' => $attendance]);
     }
 
-    // GET /api/attendance/photo/{attendanceId}/{type}
-    public function photo($attendanceId, $type)
+    // GET /api/admin/attendance/photo/{attendanceId}/{type}
+    // Route: admin/attendance/photo/{attendanceId}/{type}
+    // Middleware: auth.token + role:admin (lewat group di api.php)
+    public function photo(Request $request, $attendanceId, $type)
     {
         $attendance = Attendance::findOrFail($attendanceId);
 
@@ -116,10 +118,23 @@ class AdminAttendanceController extends Controller
             ? $attendance->check_in_photo
             : $attendance->check_out_photo;
 
-        if (!$path || !Storage::disk('public')->exists($path)) {
-            return response()->json(['message' => 'Foto tidak ditemukan'], 404);
+        if (!$path) {
+            return response()->json(['message' => 'Foto tidak tersedia'], 404);
         }
 
-        return response()->file(Storage::disk('public')->path($path));
+        if (!Storage::disk('public')->exists($path)) {
+            return response()->json([
+                'message' => 'File foto tidak ditemukan di storage',
+                'path'    => $path, // untuk debugging
+            ], 404);
+        }
+
+        $fullPath = Storage::disk('public')->path($path);
+        $mimeType = mime_content_type($fullPath) ?: 'image/jpeg';
+
+        return response()->file($fullPath, [
+            'Content-Type'        => $mimeType,
+            'Content-Disposition' => 'inline',
+        ]);
     }
 }

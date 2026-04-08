@@ -9,6 +9,7 @@ class Position extends Model
     protected $fillable = [
         'name',
         'description',
+        'kpi_target', // ← tambah ini saja
     ];
 
     public function users()

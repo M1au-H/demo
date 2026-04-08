@@ -4,6 +4,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class Leave extends Model
 {
-    protected $fillable = ['user_id', 'date', 'type', 'reason'];
+    protected $fillable = [
+        'user_id',
+        'date',
+        'type',
+        'reason',
+        'surat_dokter',
+    ];
+
     public function user() { return $this->belongsTo(User::class); }
 }

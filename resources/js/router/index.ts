@@ -5,7 +5,14 @@ import {
 } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useConfigStore } from "@/stores/config";
-import JwtService from "@/core/services/JwtService";
+
+const getApiToken = (): string => {
+  return (
+    localStorage.getItem("api_token") ||
+    localStorage.getItem("id_token")  ||
+    ""
+  );
+};
 
 const routes: Array<RouteRecordRaw> = [
   // ===== ADMIN ROUTES =====
@@ -70,6 +77,24 @@ const routes: Array<RouteRecordRaw> = [
         meta: { pageTitle: "Face Management", breadcrumbs: ["HR", "Face Management"] },
       },
       {
+        path: "/hr/salary-settings",
+        name: "hr-salary-settings",
+        component: () => import("@/views/admin/hr/payroll/SalarySettings.vue"),
+        meta: { pageTitle: "Pengaturan Gaji", breadcrumbs: ["HR", "Penggajian"] },
+      },
+      {
+        path: "/hr/payroll",
+        name: "hr-payroll",
+        component: () => import("@/views/admin/hr/payroll/PayrollManagement.vue"),
+        meta: { pageTitle: "Manajemen Penggajian", breadcrumbs: ["HR", "Penggajian"] },
+      },
+      {
+        path: "/hr/kpi",
+        name: "hr-kpi",
+        component: () => import("@/views/admin/hr/performance/KpiManagement.vue"),
+        meta: { pageTitle: "Manajemen KPI", breadcrumbs: ["HR", "KPI"] },
+      },
+      {
         path: "/crafted/pages/profile",
         name: "profile",
         component: () => import("@/components/page-layouts/Profile.vue"),
@@ -112,10 +137,10 @@ const routes: Array<RouteRecordRaw> = [
       { path: "/apps/subscriptions/subscription-list", name: "apps-subscriptions-subscription-list", component: () => import("@/views/apps/subscriptions/SubscriptionList.vue"), meta: { pageTitle: "Subscription List", breadcrumbs: ["Apps", "Subscriptions"] } },
       { path: "/apps/subscriptions/add-subscription",  name: "apps-subscriptions-add-subscription",  component: () => import("@/views/apps/subscriptions/AddSubscription.vue"),  meta: { pageTitle: "Add Subscription", breadcrumbs: ["Apps", "Subscriptions"] } },
       { path: "/apps/subscriptions/view-subscription", name: "apps-subscriptions-view-subscription", component: () => import("@/views/apps/subscriptions/ViewSubscription.vue"), meta: { pageTitle: "View Subscription", breadcrumbs: ["Apps", "Subscriptions"] } },
-      { path: "/apps/calendar",           name: "apps-calendar",      component: () => import("@/views/apps/Calendar.vue"),              meta: { pageTitle: "Calendar", breadcrumbs: ["Apps"] } },
-      { path: "/apps/chat/private-chat",  name: "apps-private-chat",  component: () => import("@/views/apps/chat/Chat.vue"),             meta: { pageTitle: "Private Chat", breadcrumbs: ["Apps", "Chat"] } },
-      { path: "/apps/chat/group-chat",    name: "apps-group-chat",    component: () => import("@/views/apps/chat/Chat.vue"),             meta: { pageTitle: "Group Chat", breadcrumbs: ["Apps", "Chat"] } },
-      { path: "/apps/chat/drawer-chat",   name: "apps-drawer-chat",   component: () => import("@/views/apps/chat/DrawerChat.vue"),       meta: { pageTitle: "Drawer Chat", breadcrumbs: ["Apps", "Chat"] } },
+      { path: "/apps/calendar",           name: "apps-calendar",      component: () => import("@/views/apps/Calendar.vue"),          meta: { pageTitle: "Calendar", breadcrumbs: ["Apps"] } },
+      { path: "/apps/chat/private-chat",  name: "apps-private-chat",  component: () => import("@/views/apps/chat/Chat.vue"),         meta: { pageTitle: "Private Chat", breadcrumbs: ["Apps", "Chat"] } },
+      { path: "/apps/chat/group-chat",    name: "apps-group-chat",    component: () => import("@/views/apps/chat/Chat.vue"),         meta: { pageTitle: "Group Chat", breadcrumbs: ["Apps", "Chat"] } },
+      { path: "/apps/chat/drawer-chat",   name: "apps-drawer-chat",   component: () => import("@/views/apps/chat/DrawerChat.vue"),   meta: { pageTitle: "Drawer Chat", breadcrumbs: ["Apps", "Chat"] } },
       { path: "/crafted/modals/general/invite-friends",      name: "modals-general-invite-friends",  component: () => import("@/views/crafted/modals/general/InviteFriends.vue"), meta: { pageTitle: "Invite Friends" } },
       { path: "/crafted/modals/general/view-user",           name: "modals-general-view-user",       component: () => import("@/views/crafted/modals/general/ViewUsers.vue"),     meta: { pageTitle: "View User" } },
       { path: "/crafted/modals/general/upgrade-plan",        name: "modals-general-upgrade-plan",    component: () => import("@/views/crafted/modals/general/UpgradePlan.vue"),   meta: { pageTitle: "Upgrade Plan" } },
@@ -185,6 +210,18 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import("@/views/user/performance/MyPerformance.vue"),
         meta: { pageTitle: "Performa Saya", middleware: "auth-user" },
       },
+      {
+        path: "/user/payroll",
+        name: "user-payroll",
+        component: () => import("@/views/user/payroll/MyPayroll.vue"),
+        meta: { pageTitle: "Slip Gaji", middleware: "auth-user" },
+      },
+      {
+        path: "/user/kpi",
+        name: "user-kpi",
+        component: () => import("@/views/user/performance/MyKpi.vue"),
+        meta: { pageTitle: "KPI Saya", middleware: "auth-user" },
+      },
     ],
   },
 
@@ -210,6 +247,12 @@ const routes: Array<RouteRecordRaw> = [
         name: "password-reset",
         component: () => import("@/views/crafted/authentication/basic-flow/PasswordReset.vue"),
         meta: { pageTitle: "Password reset" },
+      },
+      {
+        path: "/leave",
+        name: "public-leave",
+        component: () => import("@/views/crafted/authentication/basic-flow/SignIn.vue"),
+        meta: { pageTitle: "Izin & Cuti" },
       },
     ],
   },
@@ -255,43 +298,48 @@ router.beforeEach(async (to, from, next) => {
   document.title = `${to.meta.pageTitle ?? "Page"} - ${import.meta.env.VITE_APP_NAME}`;
   configStore.resetLayoutConfig();
 
-  const publicPages  = ["sign-in", "sign-up", "password-reset", "404", "500"];
+  const publicPages  = ["sign-in", "sign-up", "password-reset", "404", "500", "public-leave"];
   const isPublicPage = publicPages.includes(to.name as string);
 
   if (!isPublicPage) {
-    const token = JwtService.getToken();
+    const token = getApiToken();
 
     if (!token) {
-      // Tidak ada token → langsung ke sign-in
       return next({ name: "sign-in" });
     }
 
-    // ✅ Ada token tapi user.role kosong = kondisi setelah refresh
-    // Wajib verifyAuth dulu agar user.value terisi sebelum cek role
     if (!authStore.user?.role) {
-      await authStore.verifyAuth();
+      try {
+        await authStore.verifyAuth();
+      } catch {
+        localStorage.removeItem("api_token");
+        localStorage.removeItem("id_token");
+        return next({ name: "sign-in" });
+      }
     }
   }
 
   if (to.meta.middleware === "auth") {
     if (authStore.isAuthenticated && authStore.isAdmin()) {
-      next();
+      return next();
     } else if (authStore.isAuthenticated && authStore.isUser()) {
-      next({ name: "user-dashboard" });
+      return next({ name: "user-dashboard" });
     } else {
-      next({ name: "sign-in" });
+      return next({ name: "sign-in" });
     }
-  } else if (to.meta.middleware === "auth-user") {
-    if (authStore.isAuthenticated && authStore.isUser()) {
-      next();
-    } else if (authStore.isAuthenticated && authStore.isAdmin()) {
-      next({ name: "dashboard" });
-    } else {
-      next({ name: "sign-in" });
-    }
-  } else {
-    next();
   }
+
+  if (to.meta.middleware === "auth-user") {
+    if (authStore.isAuthenticated && authStore.isUser()) {
+      return next();
+    } else if (authStore.isAuthenticated && authStore.isAdmin()) {
+      return next({ name: "dashboard" });
+    } else {
+      return next({ name: "sign-in" });
+    }
+  }
+
+  return next();
 });
 
 export default router;

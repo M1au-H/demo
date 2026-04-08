@@ -54,10 +54,32 @@ const MainMenuConfig: Array<MenuItem> = [
       },
       {
         heading: "Face Management",
-        route: "/hr/face-management",  // ← diperbaiki, sesuai router
+        route: "/hr/face-management",
         keenthemesIcon: "fingerprint-scanning",
         bootstrapIcon: "bi-camera-video",
       },
+      // ── Penggajian ────────────────────────────────────────────────────
+      {
+        sectionTitle: "Penggajian",
+        route: "/hr/penggajian",
+        keenthemesIcon: "dollar",
+        bootstrapIcon: "bi-cash-coin",
+        sub: [
+          { heading: "Manajemen Payroll", route: "/hr/payroll" },
+          { heading: "Pengaturan Gaji",   route: "/hr/salary-settings" },
+        ],
+      },
+      // ── KPI ──────────────────────────────────────────────────────────
+      {
+        sectionTitle: "KPI",
+        route: "/hr/kpi-menu",
+        keenthemesIcon: "chart-line-up",
+        bootstrapIcon: "bi-graph-up",
+        sub: [
+          { heading: "Manajemen KPI", route: "/hr/kpi" },
+        ],
+      },
+      // ─────────────────────────────────────────────────────────────────
     ],
   },
 
