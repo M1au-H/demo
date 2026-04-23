@@ -8,7 +8,10 @@ class Leave extends Model
         'user_id',
         'date',
         'type',
+        'cuti_type',
+        'status',
         'reason',
+        'admin_note',
         'surat_dokter',
     ];
 

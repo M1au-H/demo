@@ -173,6 +173,9 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onUnmounted } from 'vue'
+import * as tf from '@tensorflow/tfjs'
+import '@tensorflow/tfjs-backend-webgl'
+import '@tensorflow/tfjs-backend-cpu'
 import * as faceapi from 'face-api.js'
 import axios from 'axios'
 import JwtService from '@/core/services/JwtService'
@@ -259,14 +262,25 @@ export default defineComponent({
     }
 
     const ensureModels = async () => {
-      if (modelsLoaded) return
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-      ])
-      modelsLoaded = true
-    }
+  if (modelsLoaded) return
+
+  try {
+    await tf.setBackend('webgl')
+    await tf.ready()
+    console.log('✅ Backend aktif:', tf.getBackend())
+  } catch {
+    await tf.setBackend('cpu')
+    await tf.ready()
+    console.log('⚠️ Fallback CPU backend')
+  }
+
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+  ])
+  modelsLoaded = true
+}
 
     const checkDuplicate = (descriptor: Float32Array): string => {
       const currentUserId = enrollModal.value.emp?.id

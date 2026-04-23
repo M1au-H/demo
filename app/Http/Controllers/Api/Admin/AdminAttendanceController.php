@@ -26,6 +26,10 @@ class AdminAttendanceController extends Controller
                 'check_out_time'   => $a->check_out_time,
                 'check_in_photo'   => $a->check_in_photo,
                 'check_out_photo'  => $a->check_out_photo,
+                'check_in_lat'     => $a->check_in_lat,   // ✅ FIX
+                'check_in_lng'     => $a->check_in_lng,   // ✅ FIX
+                'check_out_lat'    => $a->check_out_lat,  // ✅ FIX
+                'check_out_lng'    => $a->check_out_lng,  // ✅ FIX
                 'status'           => $a->status,
                 'checkout_status'  => $a->checkout_status,
                 'late_minutes'     => $a->late_minutes    ?? 0,
@@ -70,6 +74,10 @@ class AdminAttendanceController extends Controller
                 'check_out_time'   => $a->check_out_time,
                 'check_in_photo'   => $a->check_in_photo,
                 'check_out_photo'  => $a->check_out_photo,
+                'check_in_lat'     => $a->check_in_lat,   // ✅ FIX
+                'check_in_lng'     => $a->check_in_lng,   // ✅ FIX
+                'check_out_lat'    => $a->check_out_lat,  // ✅ FIX
+                'check_out_lng'    => $a->check_out_lng,  // ✅ FIX
                 'status'           => $a->status,
                 'checkout_status'  => $a->checkout_status,
                 'late_minutes'     => $a->late_minutes    ?? 0,
@@ -108,8 +116,6 @@ class AdminAttendanceController extends Controller
     }
 
     // GET /api/admin/attendance/photo/{attendanceId}/{type}
-    // Route: admin/attendance/photo/{attendanceId}/{type}
-    // Middleware: auth.token + role:admin (lewat group di api.php)
     public function photo(Request $request, $attendanceId, $type)
     {
         $attendance = Attendance::findOrFail($attendanceId);
@@ -125,7 +131,7 @@ class AdminAttendanceController extends Controller
         if (!Storage::disk('public')->exists($path)) {
             return response()->json([
                 'message' => 'File foto tidak ditemukan di storage',
-                'path'    => $path, // untuk debugging
+                'path'    => $path,
             ], 404);
         }
 

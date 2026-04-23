@@ -73,15 +73,12 @@ class PayrollController extends Controller
         $totalOvertimeMinutes = (int) $attendances->sum('overtime_minutes');
 
         // ── Gaji proporsional ────────────────────────────────────────────
-        $dailyRate         = (float) $salary->base_salary / $workdays;
-        $dailyAllowance    = (float) $salary->position_allowance / $workdays;
-        $proportionalBase  = round($dailyRate      * $totalHadir);
-        $proportionalAllow = round($dailyAllowance * $totalHadir);
-
+        $proportionalBase  = (float) $salary->base_salary;
+        $proportionalAllow = (float) $salary->position_allowance;
         // ── Lembur & potongan ────────────────────────────────────────────
         $overtimePay    = round($totalOvertimeMinutes * (float) $salary->overtime_rate);
-        $lateDeduction  = round($totalLateMinutes     * (float) $salary->late_rate);
-        $earlyDeduction = round($totalEarlyLeave      * (float) $salary->late_rate);
+        $lateDeduction  = max(0, round($totalLateMinutes * (float) $salary->late_rate));
+        $earlyDeduction = max(0, round($totalEarlyLeave  * (float) $salary->late_rate));
         $totalDeduction = $lateDeduction + $earlyDeduction;
 
         // ── Bonus & sanksi manual ────────────────────────────────────────
@@ -128,9 +125,9 @@ class PayrollController extends Controller
             'total_salary'              => (int) $totalSalary,
             'total_hadir'               => $totalHadir,
             'total_weekend_hadir'       => $totalWeekendHadir,
-            'total_late_minutes'        => $totalLateMinutes,
-            'total_early_leave_minutes' => $totalEarlyLeave,
-            'total_overtime_minutes'    => $totalOvertimeMinutes,
+            'total_late_minutes'        => max(0, $totalLateMinutes),
+            'total_early_leave_minutes' => max(0, $totalEarlyLeave),
+            'total_overtime_minutes'    => max(0, $totalOvertimeMinutes),
             'workdays_in_month'         => $workdays,
             'status'                    => $existing->status ?? 'draft',
             'note'                      => $existing->note   ?? null,

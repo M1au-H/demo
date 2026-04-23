@@ -12,8 +12,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->date('date');
-            $table->enum('type', ['sakit', 'cuti', 'keluarga', 'mendadak']);
+            $table->enum('type', ['sakit', 'izin', 'cuti']);
+            $table->string('cuti_type')->nullable();
+            $table->string('status')->default('approved');
+            $table->string('admin_note')->nullable();
             $table->text('reason')->nullable();
+            $table->string('surat_dokter')->nullable();
             $table->timestamps();
             $table->unique(['user_id', 'date']);
         });

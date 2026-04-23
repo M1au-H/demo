@@ -11,14 +11,26 @@ use Illuminate\Support\Facades\Storage;
 
 class LeaveController extends Controller
 {
-    // Maksimal izin per bulan
-    const MAX_IZIN_PER_BULAN = 3;
+    // Maksimal cuti per bulan (otomatis approved)
+    const MAX_CUTI_PER_BULAN = 3;
 
+    // Jenis izin khusus (butuh approval admin)
+    const IZIN_TYPES = [
+        'duka_cita'                 => 'Duka Cita (Keluarga Meninggal)',
+        'menikah'                   => 'Pernikahan',
+        'melahirkan'                => 'Melahirkan / Persalinan',
+        'menemani_istri_melahirkan' => 'Menemani Istri Melahirkan',
+        'khitan'                    => 'Khitan Anak',
+        'lainnya'                   => 'Keperluan Khusus Lainnya',
+    ];
+
+    // ── User: submit izin/cuti ──────────────────────────────────────────────
     public function store(Request $request)
     {
         $request->validate([
             'date'         => 'required|date',
-            'type'         => 'required|in:sakit,izin', // ← hanya 2 tipe
+            'type'         => 'required|in:sakit,izin,cuti',
+            'cuti_type'    => 'required_if:type,izin|nullable|in:' . implode(',', array_keys(self::IZIN_TYPES)),
             'reason'       => 'nullable|string|max:500',
             'surat_dokter' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -30,7 +42,8 @@ class LeaveController extends Controller
         $request->validate([
             'user_id'      => 'required|exists:users,id',
             'date'         => 'required|date',
-            'type'         => 'required|in:sakit,izin', // ← hanya 2 tipe
+            'type'         => 'required|in:sakit,izin,cuti',
+            'cuti_type'    => 'required_if:type,izin|nullable|in:' . implode(',', array_keys(self::IZIN_TYPES)),
             'reason'       => 'nullable|string|max:500',
             'surat_dokter' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
@@ -53,7 +66,7 @@ class LeaveController extends Controller
             return response()->json(['message' => 'Tidak bisa hapus izin yang sudah lewat.'], 422);
         if ($leave->surat_dokter) Storage::disk('public')->delete($leave->surat_dokter);
         $leave->delete();
-        return response()->json(['message' => 'Izin berhasil dibatalkan.']);
+        return response()->json(['message' => 'Berhasil dibatalkan.']);
     }
 
     public function myLeaves()
@@ -62,18 +75,18 @@ class LeaveController extends Controller
             ->orderBy('date', 'desc')->get()
             ->map(fn($l) => $this->formatLeave($l));
 
-        // Hitung sisa kuota izin bulan ini
-        $izinBulanIni = Leave::where('user_id', Auth::id())
+        $cutiBulanIni = Leave::where('user_id', Auth::id())
             ->whereMonth('date', now()->month)
             ->whereYear('date',  now()->year)
-            ->where('type', 'izin')
+            ->where('type', 'cuti')
             ->count();
 
         return response()->json([
             'data'          => $leaves,
-            'kuota_izin'    => self::MAX_IZIN_PER_BULAN,
-            'izin_terpakai' => $izinBulanIni,
-            'sisa_izin'     => max(0, self::MAX_IZIN_PER_BULAN - $izinBulanIni),
+            'kuota_cuti'    => self::MAX_CUTI_PER_BULAN,
+            'cuti_terpakai' => $cutiBulanIni,
+            'sisa_cuti'     => max(0, self::MAX_CUTI_PER_BULAN - $cutiBulanIni),
+            'izin_types'    => self::IZIN_TYPES,
         ]);
     }
 
@@ -84,55 +97,117 @@ class LeaveController extends Controller
             return response()->json(['message' => 'Tidak bisa hapus izin yang sudah lewat.'], 422);
         if ($leave->surat_dokter) Storage::disk('public')->delete($leave->surat_dokter);
         $leave->delete();
-        return response()->json(['message' => 'Izin berhasil dibatalkan.']);
+        return response()->json(['message' => 'Berhasil dibatalkan.']);
     }
 
+    // ── Admin: list semua izin & cuti ──────────────────────────────────────
     public function adminIndex(Request $request)
     {
         $query = Leave::with('user:id,name,job_title,avatar')->orderBy('date', 'desc');
-        if ($request->date) $query->where('date', $request->date);
+        if ($request->date)  $query->where('date',   $request->date);
         if ($request->month && $request->year)
             $query->whereMonth('date', $request->month)->whereYear('date', $request->year);
+        if ($request->type)   $query->where('type',   $request->type);
+        if ($request->status) $query->where('status', $request->status);
 
         $leaves = $query->get()->map(fn($l) => $this->formatLeave($l, true));
 
-        // Hitung kuota per user bulan ini
         $month = $request->month ?? now()->month;
         $year  = $request->year  ?? now()->year;
 
-        $kuotaPerUser = User::where('role', 'user')->get()->map(function($user) use ($month, $year) {
-            $terpakai = Leave::where('user_id', $user->id)
-                ->whereMonth('date', $month)
-                ->whereYear('date',  $year)
-                ->where('type', 'izin')
+        $kuotaPerUser = User::where('role', 'user')->get()->map(function ($user) use ($month, $year) {
+            $cutiTerpakai = Leave::where('user_id', $user->id)
+                ->whereMonth('date', $month)->whereYear('date', $year)
+                ->where('type', 'cuti')
                 ->count();
+
+            $izinPending = Leave::where('user_id', $user->id)
+                ->whereMonth('date', $month)->whereYear('date', $year)
+                ->where('type', 'izin')
+                ->where('status', 'pending')
+                ->count();
+
             return [
                 'user_id'       => $user->id,
                 'name'          => $user->name,
-                'izin_terpakai' => $terpakai,
-                'sisa_izin'     => max(0, self::MAX_IZIN_PER_BULAN - $terpakai),
-                'kuota'         => self::MAX_IZIN_PER_BULAN,
+                'cuti_terpakai' => $cutiTerpakai,
+                'sisa_cuti'     => max(0, self::MAX_CUTI_PER_BULAN - $cutiTerpakai),
+                'kuota'         => self::MAX_CUTI_PER_BULAN,
+                'izin_pending'  => $izinPending,
             ];
         });
 
         return response()->json([
-            'data'          => $leaves,
-            'kuota_per_user'=> $kuotaPerUser,
+            'data'           => $leaves,
+            'kuota_per_user' => $kuotaPerUser,
+            'izin_types'     => self::IZIN_TYPES,
         ]);
     }
 
+    // ── Admin: approve / reject IZIN saja ─────────────────────────────────
+    public function adminUpdateStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status'     => 'required|in:approved,rejected',
+            'admin_note' => 'nullable|string|max:255',
+        ]);
+
+        $leave = Leave::with('user')->findOrFail($id);
+
+        // Hanya izin yang butuh approval — cuti & sakit otomatis
+        if ($leave->type !== 'izin') {
+            return response()->json([
+                'message' => 'Hanya izin yang memerlukan persetujuan admin. Cuti dan sakit langsung approved otomatis.',
+            ], 422);
+        }
+
+        // Cegah double approve/reject
+        if ($leave->status !== 'pending') {
+            return response()->json([
+                'message' => 'Pengajuan ini sudah diproses sebelumnya (status: ' . $leave->status . ').',
+            ], 422);
+        }
+
+        $leave->update([
+            'status'     => $request->status,
+            'admin_note' => $request->admin_note,
+        ]);
+
+        $statusLabel = $request->status === 'approved' ? 'disetujui' : 'ditolak';
+        $notifType   = $request->status === 'approved' ? 'success' : 'error';
+
+        Notification::create([
+            'user_id' => $leave->user_id,
+            'title'   => 'Pengajuan Izin ' . ucfirst($statusLabel),
+            'message' => "Pengajuan izin kamu untuk tanggal {$leave->date} telah {$statusLabel}."
+                       . ($request->admin_note ? " Catatan: {$request->admin_note}" : ''),
+            'type'    => $notifType,
+        ]);
+
+        return response()->json([
+            'message' => "Izin berhasil {$statusLabel}.",
+            'data'    => $this->formatLeave($leave->fresh(['user']), true),
+        ]);
+    }
+
+    // ── Format response ────────────────────────────────────────────────────
     private function formatLeave($leave, $withUser = false)
     {
+        $izinTypes = self::IZIN_TYPES;
         $data = [
-            'id'           => $leave->id,
-            'user_id'      => $leave->user_id,
-            'date'         => $leave->date,
-            'type'         => $leave->type,
-            'reason'       => $leave->reason,
-            'surat_dokter' => $leave->surat_dokter
+            'id'              => $leave->id,
+            'user_id'         => $leave->user_id,
+            'date'            => $leave->date,
+            'type'            => $leave->type,
+            'cuti_type'       => $leave->cuti_type,
+            'cuti_type_label' => $leave->cuti_type ? ($izinTypes[$leave->cuti_type] ?? $leave->cuti_type) : null,
+            'status'          => $leave->status,
+            'admin_note'      => $leave->admin_note,
+            'reason'          => $leave->reason,
+            'surat_dokter'    => $leave->surat_dokter
                 ? url('storage/' . $leave->surat_dokter)
                 : null,
-            'created_at'   => $leave->created_at,
+            'created_at'      => $leave->created_at,
         ];
 
         if ($withUser && $leave->relationLoaded('user') && $leave->user) {
@@ -149,25 +224,27 @@ class LeaveController extends Controller
         return $data;
     }
 
+    // ── Buat izin/cuti baru ────────────────────────────────────────────────
     private function createLeave($user, Request $request)
     {
         // Cek duplikat tanggal
         $exists = Leave::where('user_id', $user->id)->where('date', $request->date)->exists();
         if ($exists)
-            return response()->json(['message' => 'Sudah ada izin untuk tanggal ini.'], 422);
+            return response()->json(['message' => 'Sudah ada izin/cuti untuk tanggal ini.'], 422);
 
-        // Cek kuota izin (hanya untuk type = izin)
-        if ($request->type === 'izin') {
-            $date         = \Carbon\Carbon::parse($request->date);
-            $izinBulanIni = Leave::where('user_id', $user->id)
+        $date = \Carbon\Carbon::parse($request->date);
+
+        // Cek kuota cuti (maks 3x/bulan, otomatis approved)
+        if ($request->type === 'cuti') {
+            $cutiBulanIni = Leave::where('user_id', $user->id)
                 ->whereMonth('date', $date->month)
                 ->whereYear('date',  $date->year)
-                ->where('type', 'izin')
+                ->where('type', 'cuti')
                 ->count();
 
-            if ($izinBulanIni >= self::MAX_IZIN_PER_BULAN) {
+            if ($cutiBulanIni >= self::MAX_CUTI_PER_BULAN) {
                 return response()->json([
-                    'message' => 'Kuota izin bulan ini sudah habis (maksimal ' . self::MAX_IZIN_PER_BULAN . 'x per bulan).',
+                    'message' => 'Kuota cuti bulan ini sudah habis (maksimal ' . self::MAX_CUTI_PER_BULAN . '× per bulan). Hubungi admin jika ada keperluan mendesak.',
                 ], 422);
             }
         }
@@ -180,25 +257,40 @@ class LeaveController extends Controller
             );
         }
 
+        // LOGIKA STATUS:
+        // - sakit → approved otomatis
+        // - cuti  → approved otomatis (kuota sudah dicek di atas)
+        // - izin  → pending, butuh approval admin
+        $status = $request->type === 'izin' ? 'pending' : 'approved';
+
         $leave = Leave::create([
             'user_id'      => $user->id,
             'date'         => $request->date,
             'type'         => $request->type,
+            'cuti_type'    => $request->type === 'izin' ? $request->cuti_type : null,
+            'status'       => $status,
             'reason'       => $request->reason,
             'surat_dokter' => $suratDokterPath,
         ]);
 
-        $typeLabel = ['sakit' => 'Sakit', 'izin' => 'Izin'][$request->type] ?? $request->type;
+        $typeLabel     = ['sakit' => 'Sakit', 'cuti' => 'Cuti', 'izin' => 'Izin'][$request->type] ?? $request->type;
+        $needsApproval = $request->type === 'izin';
+
+        $msg = $needsApproval
+            ? "Pengajuan izin untuk tanggal {$request->date} sedang menunggu persetujuan admin."
+            : "Kamu telah mencatat {$typeLabel} untuk tanggal {$request->date}.";
 
         Notification::create([
             'user_id' => $user->id,
-            'title'   => 'Izin Berhasil Dicatat',
-            'message' => "Izin kamu ({$typeLabel}) untuk tanggal {$request->date} telah dicatat.",
-            'type'    => 'success',
+            'title'   => $needsApproval ? 'Pengajuan Izin Dikirim' : ucfirst($typeLabel) . ' Dicatat',
+            'message' => $msg,
+            'type'    => $needsApproval ? 'info' : 'success',
         ]);
 
         return response()->json([
-            'message' => 'Izin berhasil dicatat.',
+            'message' => $needsApproval
+                ? 'Pengajuan izin berhasil dikirim. Menunggu persetujuan admin.'
+                : ucfirst($typeLabel) . ' berhasil dicatat.',
             'data'    => $this->formatLeave($leave),
         ], 201);
     }

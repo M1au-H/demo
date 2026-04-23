@@ -33,7 +33,7 @@
 
     <!-- Form face recognition checkout -->
     <div v-else-if="pageState === 'ready'" class="co-face-section">
- 
+
       <!-- Loading model -->
       <div v-if="modelLoading" class="co-loading-box">
         <span class="co-spin"></span>
@@ -47,6 +47,14 @@
           <span :class="checkinStatus === 'late' ? 'co-badge-late' : 'co-badge-ontime'">
             {{ checkinStatus === 'late' ? `Terlambat ${lateMinutes} mnt` : 'Tepat Waktu' }}
           </span>
+        </div>
+
+        <!-- FIX: GPS Status Bar -->
+        <div v-if="gpsStatus !== 'idle'" class="co-gps-bar" :class="gpsStatus">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+          <span v-if="gpsStatus === 'getting'">Mengambil lokasi GPS...</span>
+          <span v-else-if="gpsStatus === 'ok'">✓ Lokasi terverifikasi</span>
+          <span v-else-if="gpsStatus === 'error'">{{ gpsMsg }}</span>
         </div>
 
         <!-- Camera -->
@@ -104,7 +112,11 @@ const MODEL_URL  = '/models'
 const API_BASE   = (import.meta.env.VITE_APP_API_URL as string || '/api').replace(/\/$/, '')
 const THRESHOLD  = 0.45
 
-// ✅ Capture foto dari video sebagai base64 JPEG
+// ── Koordinat toko (sama dengan SignIn.vue) ───────────────────────────────────
+const STORE_LAT    = Number(import.meta.env.VITE_STORE_LAT    ?? -7.2750211)
+const STORE_LNG    = Number(import.meta.env.VITE_STORE_LNG    ?? 112.6518010)
+const STORE_RADIUS = Number(import.meta.env.VITE_STORE_RADIUS ?? 100)
+
 function capturePhoto(video: HTMLVideoElement): string | null {
   try {
     const canvas = document.createElement('canvas')
@@ -117,6 +129,15 @@ function capturePhoto(video: HTMLVideoElement): string | null {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL('image/jpeg', 0.8)
   } catch (_) { return null }
+}
+
+// FIX: Haversine distance (meter) — sama dengan SignIn.vue
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R  = 6371000
+  const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180
+  const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lng2 - lng1) * Math.PI / 180
+  const a  = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))
 }
 
 export default defineComponent({
@@ -139,6 +160,12 @@ export default defineComponent({
     const errorMsg      = ref('')
     const processing    = ref(false)
     const modelLoading  = ref(true)
+
+    // FIX: GPS state untuk checkout
+    const gpsStatus = ref<'idle' | 'getting' | 'ok' | 'error'>('idle')
+    const gpsMsg    = ref('')
+    let   checkoutLat = 0
+    let   checkoutLng = 0
 
     const videoEl   = ref<HTMLVideoElement | null>(null)
     const canvasEl  = ref<HTMLCanvasElement | null>(null)
@@ -186,7 +213,7 @@ export default defineComponent({
         faceProfiles = data.data ?? []
         modelLoading.value = false
         await startCamera()
-      } catch (e) {
+      } catch (_) {
         modelLoading.value = false
         errorMsg.value = 'Gagal memuat sistem pengenalan wajah.'
       }
@@ -237,6 +264,21 @@ export default defineComponent({
       let sum = 0; for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2; return Math.sqrt(sum)
     }
 
+    // FIX: getGPS helper — sama persis dengan SignIn.vue
+    const getGPS = (): Promise<{ lat: number; lng: number }> =>
+      new Promise((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error('GPS tidak didukung browser')); return }
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          err => reject(new Error(
+            err.code === 1 ? 'Izin GPS ditolak. Aktifkan GPS di browser.' :
+            err.code === 2 ? 'Posisi tidak tersedia. Pastikan GPS aktif.' :
+                             'GPS timeout. Coba lagi.'
+          )),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        )
+      })
+
     const doCheckout = async () => {
       if (!videoEl.value || processing.value) return
       processing.value = true
@@ -244,6 +286,7 @@ export default defineComponent({
       errorMsg.value   = ''
 
       try {
+        // ── Step 1: Deteksi wajah ─────────────────────────────────────────────
         const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
         const det  = await faceapi.detectSingleFace(videoEl.value, opts).withFaceLandmarks(true).withFaceDescriptor()
 
@@ -274,12 +317,55 @@ export default defineComponent({
 
         camStatus.value = 'success'
 
-        // ✅ CAPTURE FOTO sebelum stop kamera
+        // ── Step 2: FIX — Ambil GPS sebelum checkout ─────────────────────────
+        gpsStatus.value = 'getting'
+        let coords: { lat: number; lng: number }
+        try {
+          coords = await getGPS()
+        } catch (gpsErr: any) {
+          gpsStatus.value  = 'error'
+          gpsMsg.value     = gpsErr.message
+          errorMsg.value   = gpsErr.message
+          camStatus.value  = 'detecting'
+          processing.value = false
+          setTimeout(() => {
+            gpsStatus.value = 'idle'
+            errorMsg.value  = ''
+          }, 5000)
+          return
+        }
+
+        // ── Step 3: FIX — Validasi radius untuk checkout ─────────────────────
+        const jarak = haversine(coords.lat, coords.lng, STORE_LAT, STORE_LNG)
+        if (jarak > STORE_RADIUS) {
+          gpsStatus.value  = 'error'
+          gpsMsg.value     = `Kamu berada ${jarak}m dari toko. Absensi hanya dalam radius ${STORE_RADIUS}m.`
+          errorMsg.value   = gpsMsg.value
+          camStatus.value  = 'detecting'
+          processing.value = false
+          setTimeout(() => {
+            gpsStatus.value = 'idle'
+            errorMsg.value  = ''
+          }, 6000)
+          return
+        }
+
+        checkoutLat     = coords.lat
+        checkoutLng     = coords.lng
+        gpsStatus.value = 'ok'
+
+        // ── Step 4: Capture foto ──────────────────────────────────────────────
         const photo = capturePhoto(videoEl.value)
 
+        // ── Step 5: FIX — Kirim foto + lat + lng ke API checkout ─────────────
+        // SEBELUMNYA: ApiService.post('attendance/check-out', { photo })
+        // SESUDAH   : kirim lat dan lng juga agar tersimpan di DB
         ApiService.setHeader()
-        // ✅ Kirim foto bersama check-out
-        const { data } = await ApiService.post('attendance/check-out', { photo })
+        const { data } = await ApiService.post('attendance/check-out', {
+          photo,
+          lat: checkoutLat,   // FIX: ini yang hilang sebelumnya
+          lng: checkoutLng,   // FIX: ini yang hilang sebelumnya
+        })
 
         checkoutTime.value = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
         checkoutMsg.value  = data.message ?? 'Check-out berhasil'
@@ -319,6 +405,7 @@ export default defineComponent({
       checkoutTime, checkoutMsg, countdown,
       modelLoading, camStatus, errorMsg, processing,
       videoEl, canvasEl, doCheckout,
+      gpsStatus, gpsMsg,   // FIX: expose GPS state ke template
     }
   }
 })
@@ -342,10 +429,15 @@ export default defineComponent({
 .co-circle-anim { stroke-dasharray: 226; stroke-dashoffset: 226; animation: draw-circle 0.5s ease forwards; }
 .co-check-anim  { stroke-dasharray: 50;  stroke-dashoffset: 50;  animation: draw-check  0.4s ease 0.4s forwards; }
 .co-loading-box { display: flex; align-items: center; gap: 10px; color: #55555e; padding: 32px 0; justify-content: center; font-size: 13px; }
-.co-info-bar { display: flex; justify-content: space-between; align-items: center; background: #15171e; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #aaaabc; }
+.co-info-bar { display: flex; justify-content: space-between; align-items: center; background: #15171e; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; color: #aaaabc; }
 .co-info-bar strong { color: #f0f0f5; }
 .co-badge-late   { background: rgba(255,107,107,0.15); color: #ff6b6b; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 .co-badge-ontime { background: rgba(23,198,83,0.15);  color: #17c653; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+/* FIX: GPS bar styles */
+.co-gps-bar { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; }
+.co-gps-bar.getting { background: rgba(27,132,255,0.08); border: 1px solid rgba(27,132,255,0.2); color: #5aabff; }
+.co-gps-bar.ok      { background: rgba(23,198,83,0.08);  border: 1px solid rgba(23,198,83,0.2);  color: #17c653; }
+.co-gps-bar.error   { background: rgba(255,107,107,0.08);border: 1px solid rgba(255,107,107,0.2);color: #ff6b6b; }
 .co-cam-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #0a0c10; border-radius: 14px; overflow: hidden; border: 2px solid rgba(255,255,255,0.07); margin-bottom: 14px; transition: border-color 0.3s, box-shadow 0.3s; }
 .co-cam-wrap.ready     { border-color: #17c653; box-shadow: 0 0 20px rgba(23,198,83,0.18); }
 .co-cam-wrap.success   { border-color: #17c653; box-shadow: 0 0 30px rgba(23,198,83,0.3); }

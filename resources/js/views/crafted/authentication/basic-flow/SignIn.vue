@@ -25,31 +25,77 @@
         <div class="si-model-loading-cam"><div class="si-cam-placeholder"><span class="si-spin-big"></span></div></div>
         <div class="si-model-loading-text"><span class="si-spin"></span> Memuat AI model... {{ faceModelProgress }}</div>
       </div>
+
       <div v-else class="si-face-body">
+
+        <!-- Overlay Zoom Fullscreen -->
+        <teleport to="body">
+          <div v-if="isZoomed" class="si-zoom-overlay" @click.self="zoomOut">
+            <div class="si-zoom-container">
+              <div class="si-cam-big si-cam-zoomed" :class="faceCamStatus">
+                <video ref="faceVideoZoom" autoplay muted playsinline class="si-cam-video" />
+                <canvas class="si-cam-canvas" />
+                <div class="si-corner si-tl"></div><div class="si-corner si-tr"></div>
+                <div class="si-corner si-bl"></div><div class="si-corner si-br"></div>
+                <div class="si-cam-status-pill" :class="faceCamStatus">
+                  <span class="si-cam-status-dot"></span>
+                  <span v-if="faceCamStatus === 'detecting'">Mendeteksi...</span>
+                  <span v-else-if="faceCamStatus === 'liveness'">Ikuti instruksi</span>
+                  <span v-else-if="faceCamStatus === 'ready'">Mencocokkan wajah...</span>
+                  <span v-else-if="faceCamStatus === 'no_face'">Arahkan wajah ke kamera</span>
+                  <span v-else-if="faceCamStatus === 'processing'">Memproses...</span>
+                  <span v-else-if="faceCamStatus === 'success'">Berhasil dikenali!</span>
+                  <span v-else-if="faceCamStatus === 'failed'">Wajah tidak dikenali</span>
+                  <span v-else-if="faceCamStatus === 'liveness_fail'">Gagal, coba lagi</span>
+                </div>
+                <button class="si-zoom-close-btn" @click="zoomOut" title="Tutup">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </teleport>
+
+        <!-- GPS Status Bar -->
+        <div v-if="gpsStatus !== 'idle'" class="si-gps-bar" :class="gpsStatus">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+          <span v-if="gpsStatus === 'getting'">Mengambil lokasi GPS...</span>
+          <span v-else-if="gpsStatus === 'ok'">✓ Lokasi terverifikasi</span>
+          <span v-else-if="gpsStatus === 'error'">{{ gpsMsg }}</span>
+        </div>
+
+        <!-- Kamera Normal -->
         <div class="si-cam-big" :class="faceCamStatus">
           <video ref="faceVideo" autoplay muted playsinline class="si-cam-video" />
           <canvas ref="faceCanvas" class="si-cam-canvas" />
           <div class="si-corner si-tl"></div><div class="si-corner si-tr"></div>
           <div class="si-corner si-bl"></div><div class="si-corner si-br"></div>
 
+          <!-- Countdown Foto Overlay -->
+          <div v-if="isCountingDown" class="si-countdown-overlay">
+            <div v-if="photoCountdown > 0" class="si-countdown-number" :key="photoCountdown">
+              {{ photoCountdown }}
+            </div>
+            <div v-else-if="isPhotoTaken" class="si-countdown-flash">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span>Foto diambil!</span>
+            </div>
+            <div class="si-countdown-msg">{{ photoCountdownMsg }}</div>
+          </div>
+
           <!-- Tombol Zoom -->
           <div class="si-zoom-btns">
-            <button class="si-zoom-btn" @click="zoomIn" title="Zoom In">
+            <button class="si-zoom-btn" @click="zoomIn" title="Perbesar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
-              </svg>
-            </button>
-            <button class="si-zoom-btn" @click="zoomOut" title="Zoom Out" :disabled="zoomLevel <= 1">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                <line x1="8" y1="11" x2="14" y2="11"/>
-              </svg>
-            </button>
-            <button class="si-zoom-btn" @click="zoomReset" title="Reset" :disabled="zoomLevel === 1">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="1 4 1 10 7 10"/>
-                <path d="M3.51 15a9 9 0 1 0 .49-4"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <polyline points="9 21 3 21 3 15"/>
+                <line x1="21" y1="3" x2="14" y2="10"/>
+                <line x1="3" y1="21" x2="10" y2="14"/>
               </svg>
             </button>
           </div>
@@ -102,18 +148,21 @@
           </div>
           <div v-if="returnPhaseRef" class="si-lv-return-phase">Bagus! Sekarang <strong>kembali ke tengah</strong></div>
 
-          <!-- Blink status indicator -->
           <div v-if="currentChallenge && currentChallenge.type === 'blink'" class="si-lv-blink-state">
             <div v-if="!earBaselineReady" class="si-blink-waiting">
-              Mengukur baseline mata... ({{ Math.min(earBaselineFramesDisplay, 15) }}/15)
+              Mengukur baseline mata... ({{ Math.min(earBaselineFramesDisplay, 8) }}/8)
             </div>
-            <div v-else-if="eyeClosedRef" class="si-blink-closed">Mata tertutup ✓</div>
-            <div v-else-if="blinkCountRef === 1 && currentChallenge.double" class="si-blink-one">Kedipan 1 ✓ — sekali lagi</div>
-            <div v-else class="si-blink-waiting">Kedipkan mata sekarang</div>
+            <template v-else>
+              <div v-if="blinkPhase === 'wait_close'" class="si-blink-waiting">👁 Tutup mata Anda sekarang</div>
+              <div v-else-if="blinkPhase === 'wait_open'" class="si-blink-closed">✓ Mata tertutup — sekarang buka mata</div>
+              <div v-else-if="blinkCountRef === 1 && currentChallenge.double" class="si-blink-one">Kedipan 1 ✓ — tutup mata sekali lagi</div>
+            </template>
             <div class="si-ear-debug" v-if="earBaselineReady">
               EAR: <strong :style="{ color: earCurrentRef < earCloseThreshRef ? '#ff6b6b' : '#17c653' }">{{ earCurrentRef }}</strong>
+              (L:<strong>{{ earLeftRef }}</strong> R:<strong>{{ earRightRef }}</strong>)
               &nbsp;|&nbsp; tutup &lt; <strong>{{ earCloseThreshRef }}</strong>
               &nbsp;|&nbsp; base: <strong>{{ earBaselineRef }}</strong>
+              &nbsp;|&nbsp; fase: <strong style="color:#ffa500">{{ blinkPhase }}</strong>
             </div>
           </div>
 
@@ -186,62 +235,108 @@
             <div class="si-leave-user-name">{{ leaveUser.name }}</div>
             <div class="si-leave-user-pos">{{ leaveUser.position || 'Pegawai' }} &middot; Terverifikasi</div>
           </div>
-          <button class="si-leave-change-btn" @click="resetLeaveUser"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg></button>
+          <button class="si-leave-change-btn" @click="resetLeaveUser">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
+          </button>
         </div>
         <div class="si-leave-scan-steps" style="margin-bottom:16px">
           <div class="si-leave-scan-step done"><div class="si-step-num done">&#10003;</div><div>Identitas terverifikasi</div></div>
           <div class="si-leave-scan-step active"><div class="si-step-num">2</div><div>Isi form izin &amp; cuti</div></div>
         </div>
+
         <div class="si-leave-form">
           <div class="si-leave-field">
             <label>Tanggal Izin</label>
             <input type="date" v-model="leaveForm.date" :min="todayRaw" class="si-leave-input" />
           </div>
           <div class="si-leave-field">
-            <label>Jenis Izin</label>
+            <label>Jenis</label>
             <div class="si-leave-type-grid">
-              <!-- FIX: gunakan v-html untuk render SVG di dalam button -->
               <button
                 v-for="opt in leaveTypes"
                 :key="opt.value"
                 class="si-leave-type-btn"
                 :class="{ active: leaveForm.type === opt.value }"
-                @click="leaveForm.type = opt.value"
+                @click="leaveForm.type = opt.value; leaveForm.cutiType = ''"
               >
                 <span class="si-ltype-icon" v-html="opt.svg"></span>
                 <span>{{ opt.label }}</span>
               </button>
             </div>
           </div>
+
+          <!-- Info kuota cuti — hanya muncul jika pilih Cuti -->
+          <div v-if="leaveForm.type === 'cuti'" class="si-kuota-info" :class="sisaIzin === 0 ? 'danger' : sisaIzin === 1 ? 'warn' : 'ok'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span v-if="sisaIzin === 0">Kuota cuti bulan ini sudah habis! Gunakan <strong>Izin</strong> untuk keperluan mendesak.</span>
+            <span v-else>Sisa kuota cuti bulan ini: <strong>{{ sisaIzin }}x</strong> dari 3x</span>
+          </div>
+
+          <!-- Sub-pilihan jenis izin khusus — hanya muncul jika pilih Izin -->
+          <div v-if="leaveForm.type === 'izin'" class="si-leave-field">
+            <label>Jenis Izin Khusus <span class="si-leave-req">*wajib dipilih</span></label>
+            <div class="si-cuti-type-list">
+              <button
+                v-for="(label, val) in cutiTypes"
+                :key="val"
+                class="si-cuti-type-btn"
+                :class="{ active: leaveForm.cutiType === val }"
+                @click="leaveForm.cutiType = val"
+              >
+                {{ label }}
+              </button>
+            </div>
+            <div class="si-cuti-info">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Izin khusus memerlukan persetujuan admin sebelum berlaku.
+            </div>
+          </div>
+
           <div class="si-leave-field">
             <label>Alasan <span class="si-leave-req">*wajib</span></label>
             <textarea v-model="leaveForm.reason" class="si-leave-input si-leave-ta" placeholder="Contoh: Demam tinggi sejak kemarin..." rows="3"></textarea>
           </div>
+
           <div v-if="leaveForm.type === 'sakit'" class="si-leave-field">
             <label>Surat Dokter <span class="si-leave-req">*wajib untuk sakit</span></label>
             <label class="si-upload-box" :class="{ 'has-file': leaveForm.suratDokter }">
               <input type="file" accept="image/*,application/pdf" class="si-upload-input" @change="(e: Event) => leaveForm.suratDokter = (e.target as HTMLInputElement).files?.[0] || null" />
-              <div v-if="!leaveForm.suratDokter" class="si-upload-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Upload foto / PDF surat dokter</span></div>
-              <div v-else class="si-upload-done"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17c653" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>{{ leaveForm.suratDokter.name }}</span><button type="button" class="si-upload-clear" @click.stop="leaveForm.suratDokter = null">&times;</button></div>
+              <div v-if="!leaveForm.suratDokter" class="si-upload-placeholder">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Upload foto / PDF surat dokter</span>
+              </div>
+              <div v-else class="si-upload-done">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17c653" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>{{ leaveForm.suratDokter.name }}</span>
+                <button type="button" class="si-upload-clear" @click.stop="leaveForm.suratDokter = null">&times;</button>
+              </div>
             </label>
           </div>
+
           <div v-if="leaveFormError" class="si-face-msg err">{{ leaveFormError }}</div>
           <div v-if="leaveFormSuccess" class="si-face-msg ok">{{ leaveFormSuccess }}</div>
-          <button class="si-face-btn" @click="submitLeave" :disabled="leaveSubmitting">{{ leaveSubmitting ? 'Menyimpan...' : 'Ajukan Izin' }}</button>
+
+          <button class="si-face-btn" @click="submitLeave" :disabled="leaveSubmitting">
+            {{ leaveSubmitting ? 'Mengirim...' : leaveForm.type === 'izin' ? 'Ajukan Izin' : leaveForm.type === 'cuti' ? 'Ajukan Cuti' : 'Ajukan' }}
+          </button>
         </div>
+
         <div class="si-leave-history">
-          <div class="si-leave-history-title">Riwayat Izin</div>
-          <div v-if="leaveHistory.length === 0" class="si-leave-empty">Belum ada riwayat izin</div>
+          <div class="si-leave-history-title">Riwayat Izin & Cuti</div>
+          <div v-if="leaveHistory.length === 0" class="si-leave-empty">Belum ada riwayat</div>
           <div v-else class="si-leave-list">
             <div v-for="lv in leaveHistory" :key="lv.id" class="si-leave-item">
-              <!-- FIX: gunakan v-html karena typeIcon mengembalikan string SVG -->
               <span class="si-leave-item-icon" v-html="typeIcon(lv.type)"></span>
               <div class="si-leave-item-body">
                 <div class="si-leave-item-type">{{ typeLabel(lv.type) }}</div>
                 <div class="si-leave-item-date">{{ formatDate(lv.date) }}</div>
                 <div v-if="lv.reason" class="si-leave-item-reason">{{ lv.reason }}</div>
+                <!-- Status badge -->
+                <div class="si-leave-item-status" :class="`si-lstatus-${lv.status}`">
+                  {{ lv.status === 'pending' ? '⏳ Menunggu persetujuan' : lv.status === 'approved' ? '✓ Disetujui' : '✗ Ditolak' }}
+                </div>
               </div>
-              <button v-if="lv.date >= todayRaw" class="si-leave-del" @click="deleteLeave(lv.id)">&times;</button>
+              <button v-if="lv.date >= todayRaw && lv.status === 'pending'" class="si-leave-del" @click="deleteLeave(lv.id)">&times;</button>
             </div>
           </div>
         </div>
@@ -310,17 +405,17 @@ const MODEL_URL      = '/models'
 const API_BASE       = (import.meta.env.VITE_APP_API_URL || '/api').replace(/\/$/, '')
 const THRESHOLD      = 0.45
 const CHALLENGE_SECS = 15
+const WARMUP_FRAMES   = 5
+const BASELINE_FRAMES = 8
 
-const WARMUP_FRAMES   = 20
-const BASELINE_FRAMES = 15
-
-function median(arr: number[]): number {
-  if (arr.length === 0) return 0.3
-  const sorted = [...arr].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid]
+// ── Jenis izin khusus (hardcoded, sinkron dengan backend IZIN_TYPES) ──────────
+const IZIN_TYPES: Record<string, string> = {
+  'duka_cita':                 'Duka Cita (Keluarga Meninggal)',
+  'menikah':                   'Pernikahan',
+  'melahirkan':                'Melahirkan / Persalinan',
+  'menemani_istri_melahirkan': 'Menemani Istri Melahirkan',
+  'khitan':                    'Khitan Anak',
+  'lainnya':                   'Keperluan Khusus Lainnya',
 }
 
 function calcEAR(eye: { x: number; y: number }[]): number {
@@ -457,9 +552,8 @@ export default defineComponent({
         faceModelProgress.value = 'inisialisasi backend AI...'
         await tf.setBackend('cpu')
         await tf.ready()
-        console.log('[TF] Backend aktif:', tf.getBackend())
       } catch (e) {
-        console.warn('[TF] Gagal set backend CPU, lanjut dengan default:', e)
+        console.warn('[TF] Gagal set backend CPU:', e)
       }
     }
 
@@ -507,6 +601,11 @@ export default defineComponent({
     const recognizedUser = ref<any>(null)
     const attendanceMsg  = ref('')
 
+    const photoCountdown    = ref(0)
+    const photoCountdownMsg = ref('')
+    const isCountingDown    = ref(false)
+    const isPhotoTaken      = ref(false)
+
     // ── Liveness state ────────────────────────────────────────────────────────
     const livenessActive        = ref(false)
     const livenessCompleted     = ref(false)
@@ -523,11 +622,11 @@ export default defineComponent({
     const earCurrentRef         = ref(0)
     const earBaselineRef        = ref(0)
     const earCloseThreshRef     = ref(0)
+    const earLeftRef            = ref(0)
+    const earRightRef           = ref(0)
+    const blinkPhase            = ref<'idle'|'wait_close'|'wait_open'|'done'>('idle')
 
-    // ── Movement state ────────────────────────────────────────────────────────
     let baseYaw = 0, basePitch = 0, baseSet = false
-
-    // ── EAR / blink state ────────────────────────────────────────────────────
     let earBaselineArr: number[]  = []
     let earBaseline               = 0
     let earBaselineCollected      = false
@@ -539,7 +638,6 @@ export default defineComponent({
     let challengeSecsLeft = CHALLENGE_SECS
     let pendingProfile: any = null
     let faceStream: MediaStream | null = null
-    // FIX: Pisahkan tipe interval agar tidak konflik antara deteksi normal dan liveness
     let detectInterval: number | null = null
     let isDetecting = false
     let successLock = false
@@ -555,7 +653,6 @@ export default defineComponent({
       faceCamStatus.value         = 'liveness'
       resetMovementState()
       startChallengeTimer()
-      // FIX: Restart detect loop dengan interval lebih cepat untuk liveness
       startDetectLoop()
     }
 
@@ -566,19 +663,20 @@ export default defineComponent({
     }
 
     const resetBlinkState = () => {
-      earBaselineArr              = []
-      earBaseline                 = 0
-      earBaselineCollected        = false
-      eyeIsOpen                   = true
-      blinkCount                  = 0
-      blinkCountRef.value             = 0
-      eyeClosedRef.value              = false
-      earBaselineReady.value          = false
-      earBaselineFramesDisplay.value  = 0
-      earCurrentRef.value             = 0
-      earBaselineRef.value            = 0
-      earCloseThreshRef.value         = 0
-      warmupFrameCount                = 0
+      earBaselineArr                 = []
+      earBaseline                    = 0
+      earBaselineCollected           = false
+      eyeIsOpen                      = true
+      blinkCount                     = 0
+      blinkCountRef.value            = 0
+      eyeClosedRef.value             = false
+      earBaselineReady.value         = false
+      earBaselineFramesDisplay.value = 0
+      earCurrentRef.value            = 0
+      earBaselineRef.value           = 0
+      earCloseThreshRef.value        = 0
+      blinkPhase.value               = 'idle'
+      warmupFrameCount               = 0
     }
 
     const startChallengeTimer = () => {
@@ -592,10 +690,7 @@ export default defineComponent({
     }
 
     const stopChallengeTimer = () => {
-      if (challengeTimerInt !== null) {
-        clearInterval(challengeTimerInt)
-        challengeTimerInt = null
-      }
+      if (challengeTimerInt !== null) { clearInterval(challengeTimerInt); challengeTimerInt = null }
     }
 
     const onChallengeSuccess = () => {
@@ -624,69 +719,56 @@ export default defineComponent({
       faceCamStatus.value     = 'liveness_fail'
       faceMsg.value           = 'Verifikasi liveness gagal. Ikuti instruksi dengan benar.'
       faceMsgType.value       = 'err'
-      // FIX: Restart loop dengan interval lambat setelah gagal
       startDetectLoop()
-      setTimeout(() => {
-        challengeFailed.value = false
-        faceMsg.value         = ''
-        faceCamStatus.value   = 'detecting'
-      }, 3000)
+      setTimeout(() => { challengeFailed.value = false; faceMsg.value = ''; faceCamStatus.value = 'detecting' }, 3000)
     }
 
-    // ── BLINK DETECTION ───────────────────────────────────────────────────────
     const processBlink = (pos: { x: number; y: number }[], needDouble: boolean) => {
       const leftEye  = pos.slice(36, 42)
       const rightEye = pos.slice(42, 48)
       if (leftEye.length < 6 || rightEye.length < 6) return
-
       const earL = calcEAR(leftEye)
       const earR = calcEAR(rightEye)
       const ear  = (earL + earR) / 2
-
+      earLeftRef.value    = Math.round(earL * 1000) / 1000
+      earRightRef.value   = Math.round(earR * 1000) / 1000
       earCurrentRef.value = Math.round(ear * 1000) / 1000
-
       if (!earBaselineCollected) {
-        if (warmupFrameCount < WARMUP_FRAMES) {
-          warmupFrameCount++
-          earBaselineFramesDisplay.value = 0
-          return
-        }
-
-        if (ear > 0.22 && ear < 0.45) {
+        if (warmupFrameCount < WARMUP_FRAMES) { warmupFrameCount++; earBaselineFramesDisplay.value = 0; return }
+        if (ear > 0.25 && ear < 0.55) {
           earBaselineArr.push(ear)
           earBaselineFramesDisplay.value = earBaselineArr.length
-
           if (earBaselineArr.length >= BASELINE_FRAMES) {
-            earBaseline = median(earBaselineArr)
-            if (earBaseline < 0.25) earBaseline = 0.25
-            earBaselineCollected     = true
-            earBaselineReady.value   = true
-            earBaselineRef.value     = Math.round(earBaseline * 1000) / 1000
+            earBaseline = Math.max(...earBaselineArr)
+            if (earBaseline < 0.26) earBaseline = 0.26
+            earBaselineCollected   = true
+            earBaselineReady.value = true
+            earBaselineRef.value   = Math.round(earBaseline * 1000) / 1000
+            blinkPhase.value       = 'wait_close'
           }
         }
         return
       }
-
-      const EAR_CLOSE = earBaseline * 0.80
-      const EAR_OPEN  = earBaseline * 0.90
-      earCloseThreshRef.value = Math.round(EAR_CLOSE * 1000) / 1000
-
-      const isDefinitelyClosed = ear < 0.20
-      const isBelowClose       = ear < EAR_CLOSE
-
-      if (eyeIsOpen && (isBelowClose || isDefinitelyClosed)) {
-        eyeIsOpen          = false
-        eyeClosedRef.value = true
-      } else if (!eyeIsOpen && ear > EAR_OPEN && !isDefinitelyClosed) {
-        eyeIsOpen          = true
+      const DROP_CLOSE = earBaseline * 0.85
+      const DROP_OPEN  = earBaseline * 0.92
+      earCloseThreshRef.value = Math.round(DROP_CLOSE * 1000) / 1000
+      const isClosed = ear < DROP_CLOSE
+      const isOpen   = ear > DROP_OPEN
+      if (blinkPhase.value === 'wait_close') {
         eyeClosedRef.value = false
-        blinkCount++
-        blinkCountRef.value = blinkCount
-
-        if (!needDouble || blinkCount >= 2) {
-          blinkCount          = 0
-          blinkCountRef.value = 0
-          onChallengeSuccess()
+        if (isClosed) { blinkPhase.value = 'wait_open'; eyeClosedRef.value = true }
+      } else if (blinkPhase.value === 'wait_open') {
+        eyeClosedRef.value = true
+        if (isOpen) {
+          eyeClosedRef.value  = false
+          blinkCount++
+          blinkCountRef.value = blinkCount
+          if (!needDouble || blinkCount >= 2) {
+            blinkCount = 0; blinkCountRef.value = 0; blinkPhase.value = 'done'
+            onChallengeSuccess()
+          } else {
+            blinkPhase.value = 'wait_close'
+          }
         }
       }
     }
@@ -695,28 +777,20 @@ export default defineComponent({
       const pos = det.landmarks.positions as { x: number; y: number }[]
       const ch  = currentChallenge.value
       if (!ch || pos.length < 68) return
-
       if (ch.type === 'blink') {
         processBlink(pos, !!ch.double)
-
       } else if (ch.type === 'turn_left' || ch.type === 'turn_right') {
-        const noseX  = pos[30].x
-        const leftX  = pos[36].x
-        const rightX = pos[45].x
+        const noseX  = pos[30].x; const leftX = pos[36].x; const rightX = pos[45].x
         const faceW  = Math.abs(rightX - leftX)
         if (faceW < 1) return
         const yaw = (noseX - (leftX + rightX) / 2) / faceW
         if (!baseSet) { baseYaw = yaw; baseSet = true; return }
         const delta = yaw - baseYaw
-        const THRESH = 0.10
-        if (ch.type === 'turn_left'  && delta >  THRESH) { onChallengeSuccess(); return }
-        if (ch.type === 'turn_right' && delta < -THRESH) { onChallengeSuccess(); return }
-
+        if (ch.type === 'turn_left'  && delta >  0.10) { onChallengeSuccess(); return }
+        if (ch.type === 'turn_right' && delta < -0.10) { onChallengeSuccess(); return }
       } else if (ch.type === 'nod_up' || ch.type === 'nod_down') {
-        const noseY   = pos[30].y
-        const eyeAvgY = (pos[36].y + pos[45].y) / 2
-        const chinY   = pos[8].y
-        const faceH   = Math.abs(chinY - eyeAvgY)
+        const noseY = pos[30].y; const eyeAvgY = (pos[36].y + pos[45].y) / 2; const chinY = pos[8].y
+        const faceH = Math.abs(chinY - eyeAvgY)
         if (faceH < 1) return
         const pitch = (noseY - eyeAvgY) / faceH
         if (!baseSet) { basePitch = pitch; baseSet = true; return }
@@ -732,36 +806,23 @@ export default defineComponent({
 
     const startFaceCamera = async () => {
       try {
-        faceStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 480, height: 640, facingMode: 'user', aspectRatio: 0.75 }
-        })
+        faceStream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 640, facingMode: 'user', aspectRatio: 0.75 } })
         let waited = 0
-        while (!faceVideo.value && waited < 3000) {
-          await new Promise(r => setTimeout(r, 50))
-          waited += 50
-        }
+        while (!faceVideo.value && waited < 3000) { await new Promise(r => setTimeout(r, 50)); waited += 50 }
         if (!faceVideo.value) return
         faceVideo.value.srcObject = faceStream
-        await new Promise<void>(res => {
-          faceVideo.value!.onloadedmetadata = () => res()
-          setTimeout(res, 3000)
-        })
+        await new Promise<void>(res => { faceVideo.value!.onloadedmetadata = () => res(); setTimeout(res, 3000) })
         await faceVideo.value.play()
         faceCamStatus.value = 'detecting'
         startDetectLoop()
       } catch (e: any) {
-        faceMsg.value     = 'Gagal mengakses kamera: ' + (e.message || e)
+        faceMsg.value = 'Gagal mengakses kamera: ' + (e.message || e)
         faceMsgType.value = 'err'
       }
     }
 
-    // FIX: startDetectLoop sekarang selalu clear interval lama dan buat baru
-    // berdasarkan state livenessActive saat dipanggil
     const startDetectLoop = () => {
-      if (detectInterval !== null) {
-        clearInterval(detectInterval)
-        detectInterval = null
-      }
+      if (detectInterval !== null) { clearInterval(detectInterval); detectInterval = null }
       const interval = livenessActive.value ? 60 : 300
       detectInterval = window.setInterval(async () => {
         if (!faceVideo.value || faceVideo.value.readyState < 2 || isDetecting || successLock) return
@@ -772,7 +833,6 @@ export default defineComponent({
 
     const detectFrame = async () => {
       if (!faceVideo.value) return
-
       let det: any = null
       try {
         if (!livenessActive.value) {
@@ -783,27 +843,17 @@ export default defineComponent({
           if (!det) det = await faceapi.detectSingleFace(faceVideo.value, SSD_OPTS).withFaceLandmarks()
         }
       } catch { det = null }
-
       if (det?.detection?.box) {
         const minW = (faceVideo.value.videoWidth || 480) * 0.10
         if (det.detection.box.width < minW) det = null
       }
-
       drawBox(faceCanvas.value, faceVideo.value, det)
-
-      if (!det) {
-        if (!livenessActive.value && !successLock) faceCamStatus.value = 'no_face'
-        return
-      }
-
+      if (!det) { if (!livenessActive.value && !successLock) faceCamStatus.value = 'no_face'; return }
       if (livenessActive.value && !livenessCompleted.value) {
         faceCamStatus.value = 'liveness'
-        if (det.landmarks && det.landmarks.positions.length >= 68) {
-          processLivenessFrame(det)
-        }
+        if (det.landmarks && det.landmarks.positions.length >= 68) processLivenessFrame(det)
         return
       }
-
       if (!livenessActive.value && !livenessCompleted.value && !successLock) {
         if (!faceProfiles.length) { faceCamStatus.value = 'no_face'; return }
         faceCamStatus.value = 'ready'
@@ -819,68 +869,106 @@ export default defineComponent({
 
     const drawBox = (canvas: HTMLCanvasElement | null, video: HTMLVideoElement | null, det: any) => {
       if (!canvas || !video) return
-      canvas.width  = video.videoWidth
-      canvas.height = video.videoHeight
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight
       const ctx = canvas.getContext('2d')!
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       if (!det) return
       const box   = det.detection.box
       const color = faceCamStatus.value === 'success' || faceCamStatus.value === 'ready' ? '#17c653'
                   : faceCamStatus.value === 'liveness'      ? '#ffa500'
-                  : faceCamStatus.value === 'liveness_fail' ? '#ff6b6b'
-                  : '#1b84ff'
-      ctx.strokeStyle = color
-      ctx.lineWidth   = 2.5
-      ctx.shadowColor = color
-      ctx.shadowBlur  = 8
+                  : faceCamStatus.value === 'liveness_fail' ? '#ff6b6b' : '#1b84ff'
+      ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.shadowColor = color; ctx.shadowBlur = 8
       ctx.strokeRect(box.x, box.y, box.width, box.height)
     }
 
+    // ── GPS ───────────────────────────────────────────────────────────────────
+    const STORE_LAT    = -7.2750211
+    const STORE_LNG    = 112.6518010
+    const STORE_RADIUS = 100
+    const gpsStatus  = ref<'idle'|'getting'|'ok'|'error'>('idle')
+    const gpsMsg     = ref('')
+    let   userLat    = 0
+    let   userLng    = 0
+
+    const haversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+      const R = 6371000
+      const φ1 = lat1 * Math.PI / 180; const φ2 = lat2 * Math.PI / 180
+      const Δφ = (lat2 - lat1) * Math.PI / 180; const Δλ = (lng2 - lng1) * Math.PI / 180
+      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    }
+
+    const getGPS = (): Promise<{ lat: number; lng: number }> =>
+      new Promise((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error('GPS tidak didukung browser')); return }
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          err => reject(new Error(
+            err.code === 1 ? 'Izin GPS ditolak. Aktifkan GPS di browser.' :
+            err.code === 2 ? 'Posisi tidak tersedia. Pastikan GPS aktif.' : 'GPS timeout. Coba lagi.'
+          )),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        )
+      })
+
     const processLogin = async (profile: any) => {
       try {
-        const photo = faceVideo.value ? capturePhoto(faceVideo.value) : null
+        gpsStatus.value = 'getting'; faceMsg.value = '📍 Mengambil lokasi GPS...'; faceMsgType.value = 'info'
+        let coords: { lat: number; lng: number }
+        try {
+          coords = await getGPS()
+        } catch (gpsErr: any) {
+          gpsStatus.value = 'error'; faceMsg.value = gpsErr.message; faceMsgType.value = 'err'
+          successLock = false; livenessCompleted.value = false; livenessActive.value = false
+          pendingProfile = null; faceCamStatus.value = 'detecting'; startDetectLoop()
+          setTimeout(() => { faceMsg.value = ''; gpsStatus.value = 'idle' }, 4000)
+          return
+        }
+        const jarak = haversine(coords.lat, coords.lng, STORE_LAT, STORE_LNG)
+        if (jarak > STORE_RADIUS) {
+          gpsStatus.value = 'error'
+          faceMsg.value = `📍 Kamu berada ${Math.round(jarak)}m dari toko. Absensi hanya bisa dilakukan dalam radius ${STORE_RADIUS}m.`
+          faceMsgType.value = 'err'
+          successLock = false; livenessCompleted.value = false; livenessActive.value = false
+          pendingProfile = null; faceCamStatus.value = 'detecting'; startDetectLoop()
+          setTimeout(() => { faceMsg.value = ''; gpsStatus.value = 'idle' }, 5000)
+          return
+        }
+        userLat = coords.lat; userLng = coords.lng; gpsStatus.value = 'ok'; faceMsg.value = ''
         const { data } = await axios.post(`${API_BASE}/face/login`, { user_id: profile.user_id })
         store.setAuth(data)
+        faceCamStatus.value = 'processing'; isCountingDown.value = true
+        photoCountdownMsg.value = 'Liveness berhasil! Bersiap untuk foto...'; photoCountdown.value = 0
+        await new Promise(r => setTimeout(r, 1000))
+        for (let i = 3; i >= 1; i--) {
+          photoCountdown.value = i
+          photoCountdownMsg.value = i === 3 ? 'Lihat ke kamera!' : i === 2 ? 'Jangan bergerak...' : 'Siap...'
+          await new Promise(r => setTimeout(r, 1000))
+        }
+        photoCountdown.value = 0; photoCountdownMsg.value = 'Foto diambil!'; isPhotoTaken.value = true
+        const photo = faceVideo.value ? capturePhoto(faceVideo.value) : null
+        await new Promise(r => setTimeout(r, 600))
+        isCountingDown.value = false; isPhotoTaken.value = false
+        const http = axios.create({ baseURL: API_BASE, headers: { Authorization: `Bearer ${data.api_token}` } })
+        const today = (await http.get('/attendance/today')).data?.data
+        let msg = 'Absensi berhasil'
+        if (!today?.check_in_time) {
+          const fd = new FormData()
+          if (photo) { const blob = await fetch(photo).then(r => r.blob()); fd.append('photo', blob, 'checkin.jpg') }
+          fd.append('lat', String(userLat)); fd.append('lng', String(userLng))
+          msg = ((await http.post('/attendance/check-in', fd)).data?.message) || 'Check-in berhasil'
+        } else {
+          msg = today.check_out_time ? 'Absensi hari ini sudah lengkap.' : 'Kamu sudah check-in hari ini. Check-out tersedia di dashboard.'
+        }
         recognizedUser.value = { name: profile.name, avatar: profile.avatar }
-        attendanceMsg.value  = 'Absensi berhasil'
-        try {
-          const http  = axios.create({ baseURL: API_BASE, headers: { Authorization: `Bearer ${data.api_token}` } })
-          const today = (await http.get('/attendance/today')).data?.data
-          if (!today?.check_in_time) {
-            const fd = new FormData()
-            if (photo) {
-              const blob = await fetch(photo).then(r => r.blob())
-              fd.append('photo', blob, 'checkin.jpg')
-            }
-            attendanceMsg.value = ((await http.post('/attendance/check-in', fd)).data?.message) || 'Check-in berhasil'
-          } else if (!today.check_out_time) {
-            const diff = (Date.now() - new Date(`${new Date().toDateString()} ${today.check_in_time}`).getTime()) / 3600000
-            if (diff >= 3) {
-              const fd = new FormData()
-              if (photo) {
-                const blob = await fetch(photo).then(r => r.blob())
-                fd.append('photo', blob, 'checkout.jpg')
-              }
-              attendanceMsg.value = ((await http.post('/attendance/check-out', fd)).data?.message) || 'Check-out berhasil'
-            } else {
-              attendanceMsg.value = `Sudah check-in. Check-out tersedia ${Math.ceil(3 - diff)} jam lagi.`
-            }
-          } else {
-            attendanceMsg.value = 'Absensi hari ini sudah lengkap'
-          }
-        } catch (_) {}
-        faceCamStatus.value = 'success'
+        attendanceMsg.value  = msg; faceCamStatus.value = 'success'
         stopFaceCamera()
         setTimeout(() => { router.push({ name: 'user-dashboard' }) }, 2500)
       } catch (e: any) {
-        faceMsg.value           = e.response?.data?.message || 'Gagal proses absensi.'
-        faceMsgType.value       = 'err'
-        successLock             = false
-        livenessCompleted.value = false
-        livenessActive.value    = false
-        pendingProfile          = null
-        faceCamStatus.value     = 'detecting'
-        startDetectLoop()
+        isCountingDown.value = false; isPhotoTaken.value = false; photoCountdown.value = 0
+        faceMsg.value = e.response?.data?.message || 'Gagal proses absensi.'; faceMsgType.value = 'err'
+        successLock = false; livenessCompleted.value = false; livenessActive.value = false
+        pendingProfile = null; faceCamStatus.value = 'detecting'; startDetectLoop()
         setTimeout(() => { faceMsg.value = '' }, 3000)
       }
     }
@@ -892,37 +980,12 @@ export default defineComponent({
       faceStream = null
     }
 
-    // ── Zoom state ────────────────────────────────────────────────────────────
+    // ── Zoom ──────────────────────────────────────────────────────────────────
     const zoomLevel = ref(1)
-    const MAX_ZOOM  = 3
-    const ZOOM_STEP = 0.3
-
-    const applyZoom = (level: number) => {
-      if (!faceVideo.value) return
-      faceVideo.value.style.transform       = `scaleX(-1) scale(${level})`
-      faceVideo.value.style.transformOrigin = 'center center'
-      if (faceCanvas.value) {
-        faceCanvas.value.style.transform       = `scaleX(-1) scale(${level})`
-        faceCanvas.value.style.transformOrigin = 'center center'
-      }
-    }
-
-    const zoomIn = () => {
-      if (zoomLevel.value >= MAX_ZOOM) return
-      zoomLevel.value = Math.min(MAX_ZOOM, Math.round((zoomLevel.value + ZOOM_STEP) * 10) / 10)
-      applyZoom(zoomLevel.value)
-    }
-
-    const zoomOut = () => {
-      if (zoomLevel.value <= 1) return
-      zoomLevel.value = Math.max(1, Math.round((zoomLevel.value - ZOOM_STEP) * 10) / 10)
-      applyZoom(zoomLevel.value)
-    }
-
-    const zoomReset = () => {
-      zoomLevel.value = 1
-      applyZoom(1)
-    }
+    const isZoomed  = ref(false)
+    const zoomIn    = () => { isZoomed.value = true;  document.body.style.overflow = 'hidden' }
+    const zoomOut   = () => { isZoomed.value = false; document.body.style.overflow = '' }
+    const zoomReset = () => { isZoomed.value = false; document.body.style.overflow = '' }
 
     // ── Leave state ───────────────────────────────────────────────────────────
     const leaveVideo         = ref<HTMLVideoElement | null>(null)
@@ -932,42 +995,42 @@ export default defineComponent({
     const leaveVerifyMsgType = ref('info')
     const leaveVerifying     = ref(false)
     const leaveUser          = ref<any>(null)
-    const leaveForm          = ref({
+
+    const leaveForm = ref({
       date: new Date().toISOString().split('T')[0],
       type: '',
+      cutiType: '',
       reason: '',
       suratDokter: null as File | null
     })
+
     const leaveSubmitting  = ref(false)
     const leaveFormError   = ref('')
     const leaveFormSuccess = ref('')
     const leaveHistory     = ref<any[]>([])
     const todayRaw         = new Date().toISOString().split('T')[0]
-    let leaveStream: MediaStream | null       = null
-    let leaveDetectInterval: number | null    = null
-    let autoLeaveTimer: number | null         = null
+
+    const sisaIzin  = ref(3)
+    // FIX: hardcode cutiTypes — tidak bergantung pada API agar selalu tampil
+    const cutiTypes = ref<Record<string, string>>({ ...IZIN_TYPES })
+
+    let leaveStream: MediaStream | null    = null
+    let leaveDetectInterval: number | null = null
+    let autoLeaveTimer: number | null      = null
 
     const startLeaveCamera = async () => {
       try {
-        leaveStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 480, height: 360, facingMode: 'user' }
-        })
+        leaveStream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360, facingMode: 'user' } })
         let waited = 0
-        while (!leaveVideo.value && waited < 3000) {
-          await new Promise(r => setTimeout(r, 50))
-          waited += 50
-        }
+        while (!leaveVideo.value && waited < 3000) { await new Promise(r => setTimeout(r, 50)); waited += 50 }
         if (!leaveVideo.value) return
         leaveVideo.value.srcObject = leaveStream
-        await new Promise<void>(res => {
-          leaveVideo.value!.onloadedmetadata = () => res()
-          setTimeout(res, 3000)
-        })
+        await new Promise<void>(res => { leaveVideo.value!.onloadedmetadata = () => res(); setTimeout(res, 3000) })
         await leaveVideo.value.play()
         leaveCamStatus.value = 'detecting'
         startLeaveDetectLoop()
       } catch (e: any) {
-        leaveVerifyMsg.value     = 'Gagal mengakses kamera: ' + (e.message || e)
+        leaveVerifyMsg.value = 'Gagal mengakses kamera: ' + (e.message || e)
         leaveVerifyMsgType.value = 'err'
       }
     }
@@ -999,17 +1062,12 @@ export default defineComponent({
 
     const verifyLeaveUser = async () => {
       if (!leaveVideo.value || leaveVerifying.value) return
-      leaveVerifying.value = true
-      leaveCamStatus.value = 'processing'
-      leaveVerifyMsg.value = ''
+      leaveVerifying.value = true; leaveCamStatus.value = 'processing'; leaveVerifyMsg.value = ''
       try {
         const det = await faceapi.detectSingleFace(leaveVideo.value, TINY_OPTS).withFaceLandmarks().withFaceDescriptor()
         if (!det) {
-          leaveCamStatus.value     = 'no_face'
-          leaveVerifyMsg.value     = 'Wajah tidak terdeteksi.'
-          leaveVerifyMsgType.value = 'err'
-          leaveVerifying.value     = false
-          return
+          leaveCamStatus.value = 'no_face'; leaveVerifyMsg.value = 'Wajah tidak terdeteksi.'
+          leaveVerifyMsgType.value = 'err'; leaveVerifying.value = false; return
         }
         const descriptor = Array.from(det.descriptor) as number[]
         let bestMatch: any = null, bestDist = Infinity
@@ -1018,47 +1076,57 @@ export default defineComponent({
           if (d < bestDist) { bestDist = d; bestMatch = p }
         }
         if (!bestMatch || bestDist > THRESHOLD) {
-          leaveCamStatus.value     = 'failed'
-          leaveVerifyMsg.value     = 'Wajah tidak dikenali. Coba lagi.'
-          leaveVerifyMsgType.value = 'err'
-          leaveVerifying.value     = false
-          setTimeout(() => { leaveCamStatus.value = 'detecting' }, 2000)
-          return
+          leaveCamStatus.value = 'failed'; leaveVerifyMsg.value = 'Wajah tidak dikenali. Coba lagi.'
+          leaveVerifyMsgType.value = 'err'; leaveVerifying.value = false
+          setTimeout(() => { leaveCamStatus.value = 'detecting' }, 2000); return
         }
-        leaveUser.value = {
-          user_id:  bestMatch.user_id,
-          name:     bestMatch.name,
-          avatar:   bestMatch.avatar,
-          position: bestMatch.position
-        }
+        leaveUser.value = { user_id: bestMatch.user_id, name: bestMatch.name, avatar: bestMatch.avatar, position: bestMatch.position }
         stopLeaveCamera()
         fetchLeaveHistory()
       } catch (_) {
-        leaveCamStatus.value     = 'failed'
-        leaveVerifyMsg.value     = 'Gagal verifikasi.'
-        leaveVerifyMsgType.value = 'err'
-        leaveVerifying.value     = false
+        leaveCamStatus.value = 'failed'; leaveVerifyMsg.value = 'Gagal verifikasi.'
+        leaveVerifyMsgType.value = 'err'; leaveVerifying.value = false
         setTimeout(() => { leaveCamStatus.value = 'detecting' }, 2000)
       }
     }
 
     const fetchLeaveHistory = async () => {
+      // Ambil riwayat izin
       try {
         const { data } = await axios.get(`${API_BASE}/face/leaves/${leaveUser.value.user_id}`)
         leaveHistory.value = data.data || []
+      } catch (_) {}
+
+      // FIX: cutiTypes hardcoded, tidak perlu fetch
+      cutiTypes.value = { ...IZIN_TYPES }
+
+      // Fetch sisa kuota cuti jika token tersedia
+      try {
+        const token = store.token
+        if (token) {
+          const { data } = await axios.get(`${API_BASE}/leaves/my`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          sisaIzin.value = data.sisa_cuti ?? 3
+        }
       } catch (_) {}
     }
 
     const submitLeave = async () => {
       leaveFormError.value   = ''
       leaveFormSuccess.value = ''
-      if (!leaveForm.value.date)          { leaveFormError.value = 'Pilih tanggal izin.'; return }
-      if (!leaveForm.value.type)          { leaveFormError.value = 'Pilih jenis izin.'; return }
+      if (!leaveForm.value.date)  { leaveFormError.value = 'Pilih tanggal izin.'; return }
+      if (!leaveForm.value.type)  { leaveFormError.value = 'Pilih jenis (Sakit / Cuti / Izin).'; return }
+
+      // Izin wajib pilih jenis izin khusus
+      if (leaveForm.value.type === 'izin' && !leaveForm.value.cutiType) {
+        leaveFormError.value = 'Pilih jenis izin khusus terlebih dahulu.'; return
+      }
       if (!leaveForm.value.reason.trim()) { leaveFormError.value = 'Alasan wajib diisi.'; return }
       if (leaveForm.value.type === 'sakit' && !leaveForm.value.suratDokter) {
-        leaveFormError.value = 'Surat dokter wajib diupload.'
-        return
+        leaveFormError.value = 'Surat dokter wajib diupload.'; return
       }
+
       leaveSubmitting.value = true
       try {
         const fd = new FormData()
@@ -1066,13 +1134,21 @@ export default defineComponent({
         fd.append('date',    leaveForm.value.date)
         fd.append('type',    leaveForm.value.type)
         fd.append('reason',  leaveForm.value.reason)
+
+        // cuti_type hanya untuk izin (butuh approval admin)
+        if (leaveForm.value.type === 'izin') fd.append('cuti_type', leaveForm.value.cutiType)
+
         if (leaveForm.value.suratDokter) fd.append('surat_dokter', leaveForm.value.suratDokter)
-        await axios.post(`${API_BASE}/face/leaves`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-        leaveFormSuccess.value = 'Izin berhasil dicatat!'
-        leaveForm.value        = { date: todayRaw, type: '', reason: '', suratDokter: null }
+
+        const res = await axios.post(`${API_BASE}/face/leaves`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        leaveFormSuccess.value = res.data?.message || 'Berhasil!'
+        leaveForm.value = { date: todayRaw, type: '', cutiType: '', reason: '', suratDokter: null }
         await fetchLeaveHistory()
       } catch (e: any) {
-        leaveFormError.value = e.response?.data?.message || 'Gagal mengajukan izin.'
+        console.error('submit error detail:', e.response?.data)
+        leaveFormError.value = e.response?.data?.message || 'Gagal mengajukan.'
       } finally {
         leaveSubmitting.value = false
       }
@@ -1089,36 +1165,23 @@ export default defineComponent({
     }
 
     const resetLeaveUser = () => {
-      leaveUser.value        = null
-      leaveHistory.value     = []
-      leaveVerifyMsg.value   = ''
-      leaveFormError.value   = ''
-      leaveFormSuccess.value = ''
-      leaveCamStatus.value   = 'detecting'
-      leaveVerifying.value   = false
+      leaveUser.value = null; leaveHistory.value = []; leaveVerifyMsg.value = ''
+      leaveFormError.value = ''; leaveFormSuccess.value = ''
+      leaveCamStatus.value = 'detecting'; leaveVerifying.value = false
       startLeaveCamera()
     }
 
     const leaveTypes = [
-      {
-        value: 'sakit',
-        svg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
-        label: 'Sakit'
-      },
-      {
-        value: 'izin',
-        svg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-        label: 'Izin'
-      },
+      { value: 'sakit', svg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`, label: 'Sakit' },
+      { value: 'cuti',  svg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`, label: 'Cuti' },
+      { value: 'izin',  svg: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`, label: 'Izin' },
     ]
 
-    const typeLabel = (t: string): string =>
-      ({ sakit: 'Sakit', izin: 'Izin' } as Record<string, string>)[t] || t
-
-    // FIX: typeIcon mengembalikan string SVG, harus dipakai dengan v-html di template
-    const typeIcon = (t: string): string => ({
+    const typeLabel = (t: string): string => ({ sakit: 'Sakit', izin: 'Izin', cuti: 'Cuti' } as Record<string, string>)[t] || t
+    const typeIcon  = (t: string): string => ({
       sakit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
       izin:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      cuti:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
     } as Record<string, string>)[t] || `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`
 
     const formatDate = (d: string): string =>
@@ -1126,32 +1189,24 @@ export default defineComponent({
 
     // ── Init & lifecycle ──────────────────────────────────────────────────────
     const initFace = async () => {
-      faceMsg.value           = ''
-      recognizedUser.value    = null
-      successLock             = false
-      livenessActive.value    = false
-      livenessCompleted.value = false
-      pendingProfile          = null
+      faceMsg.value = ''; recognizedUser.value = null; successLock = false
+      livenessActive.value = false; livenessCompleted.value = false; pendingProfile = null
+      isCountingDown.value = false; isPhotoTaken.value = false; photoCountdown.value = 0; photoCountdownMsg.value = ''
       resetBlinkState()
-      await loadModels()
-      await loadProfiles()
+      await loadModels(); await loadProfiles()
       await new Promise(r => setTimeout(r, 100))
       await startFaceCamera()
     }
 
     const initLeave = async () => {
-      leaveVerifyMsg.value = ''
-      leaveCamStatus.value = 'detecting'
-      leaveVerifying.value = false
-      await loadModels()
-      await loadProfiles()
-      await nextTick()
-      await new Promise(r => setTimeout(r, 150))
+      leaveVerifyMsg.value = ''; leaveCamStatus.value = 'detecting'; leaveVerifying.value = false
+      await loadModels(); await loadProfiles()
+      await nextTick(); await new Promise(r => setTimeout(r, 150))
       if (!leaveUser.value) await startLeaveCamera()
     }
 
     onMounted(() => { initFace() })
-    onUnmounted(() => { stopFaceCamera(); stopLeaveCamera() })
+    onUnmounted(() => { stopFaceCamera(); stopLeaveCamera(); document.body.style.overflow = '' })
 
     watch(mode, (val) => {
       if (val === 'face')  { stopLeaveCamera(); initFace() }
@@ -1159,10 +1214,7 @@ export default defineComponent({
       if (val === 'admin') { stopFaceCamera();  stopLeaveCamera() }
     })
 
-    // FIX: watch livenessActive untuk restart loop dengan interval yang benar
-    watch(livenessActive, () => {
-      if (detectInterval !== null) startDetectLoop()
-    })
+    watch(livenessActive, () => { if (detectInterval !== null) startDetectLoop() })
 
     return {
       submitButton, isLoading, showPwd, rememberMe, lastEmail, initialValues,
@@ -1173,13 +1225,16 @@ export default defineComponent({
       livenessActive, livenessCompleted, challenges, currentChallengeIndex,
       currentChallenge, challengeTimerPct, challengeFailed, returnPhaseRef,
       blinkCountRef, eyeClosedRef, earBaselineReady, earBaselineFramesDisplay,
-      earCurrentRef, earBaselineRef, earCloseThreshRef,
+      earCurrentRef, earBaselineRef, earCloseThreshRef, earLeftRef, earRightRef, blinkPhase,
+      photoCountdown, photoCountdownMsg, isCountingDown, isPhotoTaken,
       leaveVideo, leaveCanvas, leaveCamStatus, leaveVerifyMsg, leaveVerifyMsgType,
       leaveVerifying, leaveUser, leaveForm, leaveSubmitting, leaveFormError,
       leaveFormSuccess, leaveHistory, todayRaw,
       verifyLeaveUser, submitLeave, deleteLeave, resetLeaveUser,
       typeLabel, typeIcon, formatDate, leaveTypes,
-      zoomLevel, zoomIn, zoomOut, zoomReset,
+      sisaIzin, cutiTypes,
+      zoomLevel, zoomIn, zoomOut, zoomReset, isZoomed,
+      gpsStatus, gpsMsg,
     }
   },
 })
@@ -1284,7 +1339,7 @@ export default defineComponent({
 .si-leave-user-pos{font-size:11px;color:#17c653;margin-top:2px}
 .si-leave-change-btn{display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#aaaabc;border-radius:8px;padding:7px;cursor:pointer}
 .si-leave-change-btn:hover{background:rgba(255,255,255,.1);color:#f0f0f5}
-.si-leave-type-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.si-leave-type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .si-leave-type-btn{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;color:#72727a;cursor:pointer;transition:all .15s;font-family:inherit}
 .si-leave-type-btn:hover{background:rgba(255,255,255,.06);color:#aaaabc}
 .si-leave-type-btn.active{background:rgba(232,38,42,.1);border-color:rgba(232,38,42,.4);color:#ff8080}
@@ -1317,12 +1372,16 @@ export default defineComponent({
 .si-leave-history-title{font-size:12px;font-weight:700;color:#55555e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 .si-leave-empty{text-align:center;padding:20px;color:#3a3a48;font-size:13px}
 .si-leave-list{display:flex;flex-direction:column;gap:8px}
-.si-leave-item{display:flex;align-items:center;gap:10px;background:#0d0f14;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:10px 12px}
-.si-leave-item-icon{display:flex;align-items:center;color:#aaaabc;flex-shrink:0}
+.si-leave-item{display:flex;align-items:flex-start;gap:10px;background:#0d0f14;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:10px 12px}
+.si-leave-item-icon{display:flex;align-items:center;color:#aaaabc;flex-shrink:0;margin-top:2px}
 .si-leave-item-body{flex:1;min-width:0}
 .si-leave-item-type{font-size:13px;font-weight:600;color:#f0f0f5}
 .si-leave-item-date{font-size:11px;color:#55555e;margin-top:2px}
 .si-leave-item-reason{font-size:11px;color:#aaaabc;margin-top:3px;font-style:italic}
+.si-leave-item-status{font-size:10.5px;font-weight:600;margin-top:5px;padding:2px 8px;border-radius:5px;display:inline-block}
+.si-lstatus-pending{color:#ffc700;background:rgba(255,199,0,.1);border:1px solid rgba(255,199,0,.2)}
+.si-lstatus-approved{color:#17c653;background:rgba(23,198,83,.1);border:1px solid rgba(23,198,83,.2)}
+.si-lstatus-rejected{color:#ff6b6b;background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2)}
 .si-leave-del{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);color:#ff6b6b;border-radius:7px;padding:5px 8px;font-size:11px;cursor:pointer;flex-shrink:0}
 .si-field{margin-bottom:16px}
 .si-field-top{display:flex;justify-content:space-between;align-items:center}
@@ -1357,9 +1416,33 @@ export default defineComponent({
 .si-socials{display:flex;flex-direction:column;gap:9px}
 .si-social-btn{display:flex;align-items:center;gap:12px;background:#181b22;border:1.5px solid rgba(255,255,255,.07);border-radius:10px;color:#72727a;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:11px 16px;cursor:pointer;transition:all .15s;width:100%}
 .si-social-btn:hover{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.13);color:#e2e2e8}
-/* ── Zoom buttons ── */
+.si-zoom-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);z-index:99999;display:flex;align-items:center;justify-content:center;animation:si-fadeup .2s ease}
+.si-zoom-container{width:min(90vw,500px);display:flex;align-items:center;justify-content:center}
+.si-cam-zoomed{width:100% !important;aspect-ratio:3/4 !important;border-radius:20px !important;border-width:2px !important}
+.si-zoom-close-btn{position:absolute;top:12px;left:12px;width:36px;height:36px;border-radius:50%;background:rgba(8,10,16,.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#aaaabc;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;transition:all .15s}
+.si-zoom-close-btn:hover{background:rgba(255,107,107,.2);border-color:rgba(255,107,107,.4);color:#ff6b6b}
 .si-zoom-btns{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:10}
 .si-zoom-btn{width:32px;height:32px;border-radius:8px;background:rgba(8,10,16,.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);color:#aaaabc;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
-.si-zoom-btn:hover:not(:disabled){background:rgba(27,132,255,.2);border-color:rgba(27,132,255,.4);color:#5aabff}
-.si-zoom-btn:disabled{opacity:.3;cursor:not-allowed}
+.si-zoom-btn:hover{background:rgba(27,132,255,.2);border-color:rgba(27,132,255,.4);color:#5aabff}
+.si-countdown-overlay{position:absolute;inset:0;background:rgba(6,8,16,.75);backdrop-filter:blur(3px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:20;animation:si-fadeup .3s ease}
+.si-countdown-number{font-size:96px;font-weight:900;color:#fff;line-height:1;text-shadow:0 0 40px rgba(232,38,42,.8),0 0 80px rgba(232,38,42,.4);animation:countdown-pop .4s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes countdown-pop{from{transform:scale(1.8);opacity:0}to{transform:scale(1);opacity:1}}
+.si-countdown-flash{display:flex;flex-direction:column;align-items:center;gap:8px;color:#17c653;animation:flash-in .3s ease}
+.si-countdown-flash svg{stroke:#17c653}
+.si-countdown-flash span{font-size:18px;font-weight:700}
+@keyframes flash-in{0%{opacity:0;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}100%{transform:scale(1)}}
+.si-countdown-msg{font-size:14px;font-weight:600;color:#aaaabc;background:rgba(8,10,16,.8);padding:6px 16px;border-radius:20px;border:1px solid rgba(255,255,255,.1)}
+.si-cuti-type-list{display:flex;flex-direction:column;gap:6px}
+.si-cuti-type-btn{display:flex;align-items:center;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.07);border-radius:9px;padding:9px 12px;font-size:13px;font-weight:500;color:#72727a;cursor:pointer;transition:all .15s;font-family:inherit;text-align:left}
+.si-cuti-type-btn:hover{background:rgba(255,255,255,.06);color:#aaaabc}
+.si-cuti-type-btn.active{background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.4);color:#c084fc}
+.si-cuti-info{display:flex;align-items:flex-start;gap:6px;font-size:11px;color:#f59e0b;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:8px 10px;margin-top:2px}
+.si-kuota-info{display:flex;align-items:flex-start;gap:7px;font-size:12px;border-radius:8px;padding:8px 10px}
+.si-kuota-info.ok{color:#17c653;background:rgba(23,198,83,.08);border:1px solid rgba(23,198,83,.2)}
+.si-kuota-info.warn{color:#ffa500;background:rgba(255,165,0,.08);border:1px solid rgba(255,165,0,.2)}
+.si-kuota-info.danger{color:#ff6b6b;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.2)}
+.si-gps-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px;font-size:12.5px;font-weight:600;margin-bottom:8px}
+.si-gps-bar.getting{background:rgba(27,132,255,.08);border:1px solid rgba(27,132,255,.2);color:#5aabff}
+.si-gps-bar.ok{background:rgba(23,198,83,.08);border:1px solid rgba(23,198,83,.2);color:#17c653}
+.si-gps-bar.error{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.2);color:#ff6b6b}
 </style>

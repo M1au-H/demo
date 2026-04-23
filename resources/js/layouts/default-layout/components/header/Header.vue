@@ -1,6 +1,11 @@
 <template>
   <!--begin::Header-->
-  <div v-if="headerDisplay" id="kt_app_header" class="app-header">
+  <div
+    v-if="headerDisplay"
+    id="kt_app_header"
+    class="app-header"
+    style="flex-direction: column; height: auto; padding-bottom: 0;"
+  >
     <!--begin::Header container-->
     <div
       class="app-container d-flex align-items-stretch justify-content-between"
@@ -21,10 +26,7 @@
             class="h-20px h-lg-30px app-sidebar-logo-default theme-light-show"
           />
           <img
-            v-if="
-              layout === 'dark-header' ||
-              (themeMode === 'dark' && layout === 'light-header')
-            "
+            v-if="layout === 'dark-header' || (themeMode === 'dark' && layout === 'light-header')"
             alt="Logo"
             :src="getAssetPath('media/logos/default-dark.svg')"
             class="h-20px h-lg-30px app-sidebar-logo-default"
@@ -58,17 +60,24 @@
         </div>
         <!--end::Mobile logo-->
       </template>
+
       <!--begin::Header wrapper-->
       <div
         class="d-flex align-items-stretch justify-content-between flex-lg-grow-1"
         id="kt_app_header_wrapper"
       >
-        <KTHeaderMenu />
-        <KTHeaderNavbar />
+        <!-- ms-auto memastikan navbar tetap menempel di kanan -->
+        <div class="d-flex align-items-center ms-auto">
+          <KTHeaderNavbar />
+        </div>
       </div>
       <!--end::Header wrapper-->
     </div>
     <!--end::Header container-->
+
+    <!--begin::Tab Bar-->
+    <KTTabBar />
+    <!--end::Tab Bar-->
   </div>
   <!--end::Header-->
 </template>
@@ -76,8 +85,8 @@
 <script lang="ts">
 import { getAssetPath } from "@/core/helpers/assets";
 import { defineComponent } from "vue";
-import KTHeaderMenu from "@/layouts/default-layout/components/header/menu/Menu.vue";
 import KTHeaderNavbar from "@/layouts/default-layout/components/header/Navbar.vue";
+import KTTabBar from "@/layouts/default-layout/components/header/TabBar.vue";
 import {
   headerDisplay,
   headerWidthFluid,
@@ -90,8 +99,8 @@ import {
 export default defineComponent({
   name: "layout-header",
   components: {
-    KTHeaderMenu,
     KTHeaderNavbar,
+    KTTabBar,
   },
   setup() {
     return {

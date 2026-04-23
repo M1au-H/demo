@@ -13,6 +13,54 @@ use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
+    // ── Koordinat toko (dari .env) ────────────────────────────────────────────
+    private float $storeLat;
+    private float $storeLng;
+    private int   $storeRadius;
+
+    public function __construct()
+    {
+        $this->storeLat    = (float) env('STORE_LAT',    -7.2750211);
+        $this->storeLng    = (float) env('STORE_LNG',    112.6518010);
+        $this->storeRadius = (int)   env('STORE_RADIUS', 100); // meter
+    }
+
+    // ── Haversine: hitung jarak 2 koordinat dalam meter ──────────────────────
+    private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $R  = 6371000; // radius bumi dalam meter
+        $φ1 = deg2rad($lat1);
+        $φ2 = deg2rad($lat2);
+        $Δφ = deg2rad($lat2 - $lat1);
+        $Δλ = deg2rad($lng2 - $lng1);
+        $a  = sin($Δφ / 2) ** 2 + cos($φ1) * cos($φ2) * sin($Δλ / 2) ** 2;
+        return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    // ── Validasi lokasi user vs toko ─────────────────────────────────────────
+    private function validateLocation(Request $request): void
+    {
+        $lat = $request->input('lat');
+        $lng = $request->input('lng');
+
+        // Jika tidak ada GPS sama sekali → tolak
+        if ($lat === null || $lng === null) {
+            abort(422, 'Data lokasi GPS tidak ditemukan. Pastikan izin lokasi diaktifkan.');
+        }
+
+        $jarak = $this->haversine(
+            (float) $lat,
+            (float) $lng,
+            $this->storeLat,
+            $this->storeLng
+        );
+
+        if ($jarak > $this->storeRadius) {
+            abort(422, 'Kamu berada ' . round($jarak) . 'm dari toko. Absensi hanya bisa dilakukan dalam radius ' . $this->storeRadius . 'm.');
+        }
+    }
+
+    // ── Helper: ambil user dari token ────────────────────────────────────────
     private function getUserFromToken(Request $request)
     {
         $header = $request->header('Authorization', '');
@@ -20,12 +68,12 @@ class AttendanceController extends Controller
         return \App\Models\User::where('api_token', $token)->first();
     }
 
-    // ── Simpan foto: support FILE UPLOAD & base64 ────────────────────────
+    // ── Helper: simpan foto (support file upload & base64) ───────────────────
     private function savePhoto(Request $request, string $field = 'photo'): ?string
     {
         // 1. Coba sebagai file upload (FormData)
         if ($request->hasFile($field)) {
-            $file = $request->file($field);
+            $file     = $request->file($field);
             $filename = 'attendance-photos/' . uniqid('att_', true) . '.jpg';
             Storage::disk('public')->put($filename, file_get_contents($file->getRealPath()));
             return $filename;
@@ -48,7 +96,7 @@ class AttendanceController extends Controller
         }
     }
 
-    // Batas akhir masuk tepat waktu = 08:00
+    // ── Helper: shift timing ─────────────────────────────────────────────────
     private function getShiftDeadline(Carbon $date): Carbon
     {
         return $date->copy()->setTime(8, 0, 0);
@@ -65,11 +113,14 @@ class AttendanceController extends Controller
         return $date->copy()->setTime($date->dayOfWeek === 5 ? 15 : 16, 0, 0);
     }
 
-    // POST /api/attendance/check-in
+    // ── POST /api/attendance/check-in ────────────────────────────────────────
     public function checkIn(Request $request)
     {
         $user = $this->getUserFromToken($request);
         if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        // ✅ Validasi lokasi GPS dulu sebelum proses apapun
+        $this->validateLocation($request);
 
         $today         = Carbon::today()->toDateString();
         $now           = Carbon::now();
@@ -85,7 +136,6 @@ class AttendanceController extends Controller
         $salary              = Salary::where('user_id', $user->id)->first();
         $lateDeductionAmount = $salary ? round($lateMinutes * (float) $salary->late_rate) : 0;
 
-        // ── Support file upload & base64 ──
         $photoPath = $this->savePhoto($request, 'photo');
 
         $attendance = Attendance::create([
@@ -93,6 +143,8 @@ class AttendanceController extends Controller
             'date'                  => $today,
             'check_in_time'         => $now->toTimeString(),
             'check_in_photo'        => $photoPath,
+            'check_in_lat'          => $request->input('lat'),  // ✅ simpan GPS
+            'check_in_lng'          => $request->input('lng'),  // ✅ simpan GPS
             'status'                => $status,
             'late_minutes'          => $lateMinutes,
             'late_deduction_amount' => $lateDeductionAmount,
@@ -105,11 +157,14 @@ class AttendanceController extends Controller
         return response()->json(['message' => $message, 'data' => $attendance]);
     }
 
-    // POST /api/attendance/check-out
+    // ── POST /api/attendance/check-out ───────────────────────────────────────
     public function checkOut(Request $request)
     {
         $user = $this->getUserFromToken($request);
         if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
+
+        // ✅ Validasi lokasi GPS dulu sebelum proses apapun
+        $this->validateLocation($request);
 
         $today     = Carbon::today()->toDateString();
         $now       = Carbon::now();
@@ -152,12 +207,13 @@ class AttendanceController extends Controller
             ? round($overtimeMinutes * (float) $salary->overtime_rate)
             : 0;
 
-        // ── Support file upload & base64 ──
         $photoPath = $this->savePhoto($request, 'photo');
 
         $attendance->update([
             'check_out_time'               => $now->toTimeString(),
             'check_out_photo'              => $photoPath,
+            'check_out_lat'                => $request->input('lat'),  // ✅ simpan GPS
+            'check_out_lng'                => $request->input('lng'),  // ✅ simpan GPS
             'checkout_status'              => $checkoutStatus,
             'early_leave_minutes'          => $earlyLeaveMinutes,
             'overtime_minutes'             => $overtimeMinutes,
@@ -178,7 +234,7 @@ class AttendanceController extends Controller
         return response()->json(['message' => $message, 'data' => $attendance]);
     }
 
-    // PRIVATE: Recalculate payroll
+    // ── PRIVATE: Recalculate payroll ─────────────────────────────────────────
     private function recalculatePayroll(int $userId, int $month, int $year): void
     {
         try {
@@ -205,7 +261,7 @@ class AttendanceController extends Controller
         }
     }
 
-    // GET /api/attendance/today
+    // ── GET /api/attendance/today ────────────────────────────────────────────
     public function todayStatus(Request $request)
     {
         $user = $this->getUserFromToken($request);
@@ -218,7 +274,7 @@ class AttendanceController extends Controller
         return response()->json(['data' => $attendance]);
     }
 
-    // GET /api/attendance/my-history
+    // ── GET /api/attendance/my-history ───────────────────────────────────────
     public function myHistory(Request $request)
     {
         $user = $this->getUserFromToken($request);

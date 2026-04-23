@@ -14,7 +14,7 @@ class Payroll extends Model
         'total_salary',
         'total_hadir', 'total_late_minutes',
         'total_early_leave_minutes', 'total_overtime_minutes',
-        'status', 'note',
+        'status', 'note', 'sanction_deduction'
     ];
 
     public function user()

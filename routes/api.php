@@ -117,7 +117,9 @@ Route::middleware('auth.token')->group(function () {
         Route::get('employees', [AdminPerformanceController::class, 'employees']);
 
         // Izin & Cuti (admin view)
-        Route::get('leaves', [LeaveController::class, 'adminIndex']);
+        Route::get('leaves',             [LeaveController::class, 'adminIndex']);
+        Route::put('leaves/{id}/status', [LeaveController::class, 'adminUpdateStatus']);
+        Route::put('admin/leaves/{id}/status', [LeaveController::class, 'adminUpdateStatus']);
 
         // ── Payroll ──
         Route::get('payroll',                 [PayrollController::class, 'index']);

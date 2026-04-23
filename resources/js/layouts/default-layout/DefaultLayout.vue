@@ -1,31 +1,25 @@
 <template>
-  <!--begin::App-->
   <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
-    <!--begin::Page-->
     <div class="app-page flex-column flex-column-fluid" id="kt_app_page">
       <KTHeader />
-      <!--begin::Wrapper-->
       <div class="app-wrapper flex-column flex-row-fluid" id="kt_app_wrapper">
         <KTSidebar />
-        <!--begin::Main-->
         <div class="app-main flex-column flex-row-fluid" id="kt_app_main">
-          <!--begin::Content wrapper-->
           <div class="d-flex flex-column flex-column-fluid">
-            <KTToolbar />
-            <div id="kt_app_content" class="app-content flex-column-fluid">
+            <!-- ✅ padding-top agar konten tidak tertutup tabbar -->
+            <div
+              id="kt_app_content"
+              class="app-content flex-column-fluid"
+              style="padding-top: 24px;"
+            >
               <KTContent></KTContent>
             </div>
           </div>
-          <!--end::Content wrapper-->
           <KTFooter />
         </div>
-        <!--end:::Main-->
       </div>
-      <!--end::Wrapper-->
     </div>
-    <!--end::Page-->
   </div>
-  <!--end::App-->
 
   <KTDrawers />
   <KTScrollTop />
@@ -44,7 +38,6 @@ import {
 import KTHeader from "@/layouts/default-layout/components/header/Header.vue";
 import KTSidebar from "@/layouts/default-layout/components/sidebar/Sidebar.vue";
 import KTContent from "@/layouts/default-layout/components/content/Content.vue";
-import KTToolbar from "@/layouts/default-layout/components/toolbar/Toolbar.vue";
 import KTFooter from "@/layouts/default-layout/components/footer/Footer.vue";
 import KTDrawers from "@/layouts/default-layout/components/drawers/Drawers.vue";
 import KTModals from "@/layouts/default-layout/components/modals/Modals.vue";
@@ -60,7 +53,6 @@ export default defineComponent({
     KTHeader,
     KTSidebar,
     KTContent,
-    KTToolbar,
     KTFooter,
     KTDrawers,
     KTScrollTop,

@@ -25,6 +25,8 @@
     "@fullcalendar/vue3": "^6.1.8",
     "@popperjs/core": "^2.11.8",
     "@tensorflow/tfjs": "^3.21.0",
+    "@tensorflow/tfjs-backend-cpu": "^3.21.0",
+    "@tensorflow/tfjs-backend-webgl": "^3.21.0",
     "@tinymce/tinymce-vue": "^5.1.0",
     "@vitejs/plugin-vue": "^6.0.4",
     "@vueform/multiselect": "^1.2.5",
