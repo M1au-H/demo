@@ -85,40 +85,37 @@ class NotificationController extends Controller
             ->where('date', $todayStr)
             ->first();
 
+        // FIX: tidak pakai kolom 'category', cukup cek title + tanggal
         if ($now->hour >= 7 && (!$attendance || !$attendance->check_in_time)) {
             $exists = Notification::where('user_id', $user->id)
-                ->where('category', 'attendance')
                 ->where('title', 'Belum Absen Masuk')
                 ->whereDate('created_at', $todayStr)
                 ->exists();
 
             if (!$exists) {
                 Notification::create([
-                    'user_id'  => $user->id,
-                    'type'     => 'warning',
-                    'category' => 'attendance',
-                    'title'    => 'Belum Absen Masuk',
-                    'message'  => 'Kamu belum melakukan absen masuk hari ini. Segera absen sekarang!',
-                    'is_read'  => false,
+                    'user_id' => $user->id,
+                    'type'    => 'warning',
+                    'title'   => 'Belum Absen Masuk',
+                    'message' => 'Kamu belum melakukan absen masuk hari ini. Segera absen sekarang!',
+                    'is_read' => false,
                 ]);
             }
         }
 
         if ($now->hour >= $endHour && $attendance && $attendance->check_in_time && !$attendance->check_out_time) {
             $exists = Notification::where('user_id', $user->id)
-                ->where('category', 'attendance')
                 ->where('title', 'Belum Absen Pulang')
                 ->whereDate('created_at', $todayStr)
                 ->exists();
 
             if (!$exists) {
                 Notification::create([
-                    'user_id'  => $user->id,
-                    'type'     => 'info',
-                    'category' => 'attendance',
-                    'title'    => 'Belum Absen Pulang',
-                    'message'  => 'Shift kerja sudah selesai. Jangan lupa absen pulang!',
-                    'is_read'  => false,
+                    'user_id' => $user->id,
+                    'type'    => 'info',
+                    'title'   => 'Belum Absen Pulang',
+                    'message' => 'Shift kerja sudah selesai. Jangan lupa absen pulang!',
+                    'is_read' => false,
                 ]);
             }
         }

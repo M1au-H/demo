@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Api\Admin\PayrollController;
 use App\Models\Attendance;
 use App\Models\Payroll;
 use App\Models\Salary;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
-    // ── Koordinat toko (dari .env) ────────────────────────────────────────────
     private float $storeLat;
     private float $storeLng;
     private int   $storeRadius;
@@ -22,13 +23,12 @@ class AttendanceController extends Controller
     {
         $this->storeLat    = (float) env('STORE_LAT',    -7.2750211);
         $this->storeLng    = (float) env('STORE_LNG',    112.6518010);
-        $this->storeRadius = (int)   env('STORE_RADIUS', 100); // meter
+        $this->storeRadius = (int)   env('STORE_RADIUS', 100);
     }
 
-    // ── Haversine: hitung jarak 2 koordinat dalam meter ──────────────────────
     private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $R  = 6371000; // radius bumi dalam meter
+        $R  = 6371000;
         $φ1 = deg2rad($lat1);
         $φ2 = deg2rad($lat2);
         $Δφ = deg2rad($lat2 - $lat1);
@@ -37,41 +37,31 @@ class AttendanceController extends Controller
         return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
-    // ── Validasi lokasi user vs toko ─────────────────────────────────────────
     private function validateLocation(Request $request): void
     {
         $lat = $request->input('lat');
         $lng = $request->input('lng');
 
-        // Jika tidak ada GPS sama sekali → tolak
         if ($lat === null || $lng === null) {
             abort(422, 'Data lokasi GPS tidak ditemukan. Pastikan izin lokasi diaktifkan.');
         }
 
-        $jarak = $this->haversine(
-            (float) $lat,
-            (float) $lng,
-            $this->storeLat,
-            $this->storeLng
-        );
+        $jarak = $this->haversine((float) $lat, (float) $lng, $this->storeLat, $this->storeLng);
 
         if ($jarak > $this->storeRadius) {
             abort(422, 'Kamu berada ' . round($jarak) . 'm dari toko. Absensi hanya bisa dilakukan dalam radius ' . $this->storeRadius . 'm.');
         }
     }
 
-    // ── Helper: ambil user dari token ────────────────────────────────────────
-    private function getUserFromToken(Request $request)
+    private function getUserFromToken(Request $request): ?User
     {
         $header = $request->header('Authorization', '');
         $token  = preg_replace('/^(Token|Bearer)\s+/i', '', trim($header));
-        return \App\Models\User::where('api_token', $token)->first();
+        return User::where('api_token', $token)->first();
     }
 
-    // ── Helper: simpan foto (support file upload & base64) ───────────────────
     private function savePhoto(Request $request, string $field = 'photo'): ?string
     {
-        // 1. Coba sebagai file upload (FormData)
         if ($request->hasFile($field)) {
             $file     = $request->file($field);
             $filename = 'attendance-photos/' . uniqid('att_', true) . '.jpg';
@@ -79,7 +69,6 @@ class AttendanceController extends Controller
             return $filename;
         }
 
-        // 2. Fallback: coba sebagai base64 string
         $base64 = $request->input($field);
         if (!$base64) return null;
 
@@ -96,7 +85,6 @@ class AttendanceController extends Controller
         }
     }
 
-    // ── Helper: shift timing ─────────────────────────────────────────────────
     private function getShiftDeadline(Carbon $date): Carbon
     {
         return $date->copy()->setTime(8, 0, 0);
@@ -107,19 +95,17 @@ class AttendanceController extends Controller
         return $date->copy()->setTime(7, 0, 0);
     }
 
-    // Shift selesai: Jumat = 15:00, lainnya = 16:00
     private function getShiftEnd(Carbon $date): Carbon
     {
         return $date->copy()->setTime($date->dayOfWeek === 5 ? 15 : 16, 0, 0);
     }
 
-    // ── POST /api/attendance/check-in ────────────────────────────────────────
+    // ── POST /api/attendance/check-in ────────────────────────────────────
     public function checkIn(Request $request)
     {
         $user = $this->getUserFromToken($request);
         if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
 
-        // ✅ Validasi lokasi GPS dulu sebelum proses apapun
         $this->validateLocation($request);
 
         $today         = Carbon::today()->toDateString();
@@ -133,7 +119,10 @@ class AttendanceController extends Controller
         $status      = $now->greaterThan($shiftDeadline) ? 'late' : 'on_time';
         $lateMinutes = $status === 'late' ? (int) $now->diffInMinutes($shiftDeadline) : 0;
 
-        $salary              = Salary::where('user_id', $user->id)->first();
+        $salary = Salary::where('user_id', $user->id)
+            ->select('user_id', 'base_salary', 'late_rate', 'overtime_rate', 'position_allowance')
+            ->first();
+
         $lateDeductionAmount = $salary ? round($lateMinutes * (float) $salary->late_rate) : 0;
 
         $photoPath = $this->savePhoto($request, 'photo');
@@ -143,12 +132,14 @@ class AttendanceController extends Controller
             'date'                  => $today,
             'check_in_time'         => $now->toTimeString(),
             'check_in_photo'        => $photoPath,
-            'check_in_lat'          => $request->input('lat'),  // ✅ simpan GPS
-            'check_in_lng'          => $request->input('lng'),  // ✅ simpan GPS
+            'check_in_lat'          => $request->input('lat'),
+            'check_in_lng'          => $request->input('lng'),
             'status'                => $status,
             'late_minutes'          => $lateMinutes,
             'late_deduction_amount' => $lateDeductionAmount,
         ]);
+
+        $this->bustCache($user->id);
 
         $message = $status === 'late'
             ? "Check-in berhasil. Terlambat {$lateMinutes} menit (batas masuk 08:00)."
@@ -157,13 +148,12 @@ class AttendanceController extends Controller
         return response()->json(['message' => $message, 'data' => $attendance]);
     }
 
-    // ── POST /api/attendance/check-out ───────────────────────────────────────
+    // ── POST /api/attendance/check-out ───────────────────────────────────
     public function checkOut(Request $request)
     {
         $user = $this->getUserFromToken($request);
         if (!$user) return response()->json(['message' => 'Unauthorized'], 401);
 
-        // ✅ Validasi lokasi GPS dulu sebelum proses apapun
         $this->validateLocation($request);
 
         $today     = Carbon::today()->toDateString();
@@ -197,23 +187,23 @@ class AttendanceController extends Controller
             $overtimeMinutes = (int) $now->diffInMinutes($shiftEnd);
         }
 
-        $salary = Salary::where('user_id', $user->id)->first();
+        $salary = Salary::where('user_id', $user->id)
+            ->select('user_id', 'base_salary', 'late_rate', 'overtime_rate', 'position_allowance')
+            ->first();
 
         $earlyLeaveDeductionAmount = $salary
-            ? round($earlyLeaveMinutes * (float) $salary->late_rate)
-            : 0;
+            ? round($earlyLeaveMinutes * (float) $salary->late_rate) : 0;
 
         $overtimePayAmount = $salary
-            ? round($overtimeMinutes * (float) $salary->overtime_rate)
-            : 0;
+            ? round($overtimeMinutes * (float) $salary->overtime_rate) : 0;
 
         $photoPath = $this->savePhoto($request, 'photo');
 
         $attendance->update([
             'check_out_time'               => $now->toTimeString(),
             'check_out_photo'              => $photoPath,
-            'check_out_lat'                => $request->input('lat'),  // ✅ simpan GPS
-            'check_out_lng'                => $request->input('lng'),  // ✅ simpan GPS
+            'check_out_lat'                => $request->input('lat'),
+            'check_out_lng'                => $request->input('lng'),
             'checkout_status'              => $checkoutStatus,
             'early_leave_minutes'          => $earlyLeaveMinutes,
             'overtime_minutes'             => $overtimeMinutes,
@@ -221,8 +211,10 @@ class AttendanceController extends Controller
             'overtime_pay_amount'          => $overtimePayAmount,
         ]);
 
-        // Auto recalculate payroll
+        // Auto recalculate payroll — panggil static method langsung tanpa import circular
         $this->recalculatePayroll($user->id, (int) Carbon::today()->month, (int) Carbon::today()->year);
+
+        $this->bustCache($user->id);
 
         $message = match (true) {
             $isWeekend                        => "Check-out berhasil. Lembur akhir pekan {$overtimeMinutes} menit. Bonus: Rp " . number_format($overtimePayAmount, 0, ',', '.'),
@@ -234,7 +226,9 @@ class AttendanceController extends Controller
         return response()->json(['message' => $message, 'data' => $attendance]);
     }
 
-    // ── PRIVATE: Recalculate payroll ─────────────────────────────────────────
+    // ── PRIVATE: Recalculate payroll ─────────────────────────────────────
+    // FIX: Tidak lagi import PayrollController (circular dependency)
+    // Langsung panggil static method via fully-qualified class name
     private function recalculatePayroll(int $userId, int $month, int $year): void
     {
         try {
@@ -248,20 +242,21 @@ class AttendanceController extends Controller
                 ['base_salary' => 0, 'position_allowance' => 0, 'overtime_rate' => 0, 'late_rate' => 0]
             );
 
-            $calc = PayrollController::calculatePayroll($userId, $month, $year);
+            // Panggil via fully-qualified name — TANPA use/import di atas
+            $calc = \App\Http\Controllers\Api\Admin\PayrollController::calculatePayroll($userId, $month, $year);
 
             Payroll::updateOrCreate(
                 ['user_id' => $userId, 'month' => $month, 'year' => $year],
                 $calc
             );
         } catch (\Throwable $e) {
-            \Log::error('Auto payroll recalculate error: ' . $e->getMessage(), [
+            Log::error('Auto payroll recalculate error: ' . $e->getMessage(), [
                 'user_id' => $userId, 'month' => $month, 'year' => $year,
             ]);
         }
     }
 
-    // ── GET /api/attendance/today ────────────────────────────────────────────
+    // ── GET /api/attendance/today ─────────────────────────────────────────
     public function todayStatus(Request $request)
     {
         $user = $this->getUserFromToken($request);
@@ -274,7 +269,7 @@ class AttendanceController extends Controller
         return response()->json(['data' => $attendance]);
     }
 
-    // ── GET /api/attendance/my-history ───────────────────────────────────────
+    // ── GET /api/attendance/my-history ───────────────────────────────────
     public function myHistory(Request $request)
     {
         $user = $this->getUserFromToken($request);
@@ -283,11 +278,15 @@ class AttendanceController extends Controller
         $month = $request->month ?? Carbon::now()->month;
         $year  = $request->year  ?? Carbon::now()->year;
 
-        $attendances = Attendance::where('user_id', $user->id)
-            ->whereMonth('date', $month)
-            ->whereYear('date', $year)
-            ->orderBy('date', 'desc')
-            ->get();
+        $cacheKey = "att_history_{$user->id}_{$month}_{$year}";
+
+        $attendances = Cache::remember($cacheKey, 300, function () use ($user, $month, $year) {
+            return Attendance::where('user_id', $user->id)
+                ->whereMonth('date', $month)
+                ->whereYear('date',  $year)
+                ->orderBy('date', 'desc')
+                ->get();
+        });
 
         $summary = [
             'total_hadir'                 => $attendances->whereNotNull('check_in_time')->count(),
@@ -300,5 +299,15 @@ class AttendanceController extends Controller
         ];
 
         return response()->json(['data' => $attendances, 'summary' => $summary]);
+    }
+
+    // ── Helper: bust cache ────────────────────────────────────────────────
+    private function bustCache(int $userId): void
+    {
+        $month = now()->month;
+        $year  = now()->year;
+        Cache::forget("att_history_{$userId}_{$month}_{$year}");
+        Cache::forget('dashboard_att_today');
+        Cache::forget('dashboard_stats');
     }
 }

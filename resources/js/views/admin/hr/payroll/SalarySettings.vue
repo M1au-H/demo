@@ -46,24 +46,26 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="emp in filteredEmployees" :key="emp.id">
+              <tr v-for="emp in filteredEmployees" :key="emp.user_id">
                 <td class="ps-4">
                   <div class="d-flex align-items-center">
                     <div class="symbol symbol-40px me-3">
-                      <span class="symbol-label bg-light-primary text-primary fw-bold fs-6">
-                        {{ (emp.name ?? '?').charAt(0).toUpperCase() }}
+                      <img v-if="emp.user_avatar" :src="emp.user_avatar" class="symbol-label" />
+                      <span v-else class="symbol-label bg-light-primary text-primary fw-bold fs-6">
+                        {{ (emp.user_name ?? '?').charAt(0).toUpperCase() }}
                       </span>
                     </div>
                     <div>
-                      <span class="text-gray-900 fw-bold fs-6">{{ emp.name ?? '-' }}</span>
-                      <span class="text-muted fw-semibold d-block fs-7">{{ emp.position ?? emp.job_title ?? '-' }}</span>
+                      <span class="text-gray-900 fw-bold fs-6">{{ emp.user_name ?? '-' }}</span>
+                      <span class="text-muted fw-semibold d-block fs-7">{{ emp.position ?? '-' }}</span>
                     </div>
                   </div>
                 </td>
-                <td><span class="text-gray-900 fw-semibold">{{ formatRp(emp.salary?.base_salary ?? 0) }}</span></td>
-                <td><span class="text-gray-900 fw-semibold">{{ formatRp(emp.salary?.position_allowance ?? 0) }}</span></td>
-                <td><span class="badge badge-light-success">{{ formatRp(emp.salary?.overtime_rate ?? 0) }}/mnt</span></td>
-                <td><span class="badge badge-light-danger">{{ formatRp(emp.salary?.late_rate ?? 0) }}/mnt</span></td>
+                <!-- ✅ FIX: akses langsung dari emp, bukan emp.salary -->
+                <td><span class="text-gray-900 fw-semibold">{{ formatRp(emp.base_salary ?? 0) }}</span></td>
+                <td><span class="text-gray-900 fw-semibold">{{ formatRp(emp.position_allowance ?? 0) }}</span></td>
+                <td><span class="badge badge-light-success">{{ formatRp(emp.overtime_rate ?? 0) }}/mnt</span></td>
+                <td><span class="badge badge-light-danger">{{ formatRp(emp.late_rate ?? 0) }}/mnt</span></td>
                 <td class="text-end pe-4">
                   <button class="btn btn-sm btn-light-primary" @click="openEdit(emp)">
                     <KTIcon icon-name="pencil" icon-class="fs-5 me-1" />
@@ -86,7 +88,7 @@
     <div class="modal-dialog modal-dialog-centered modal-md">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title fw-bold">Edit Gaji — {{ editData.name ?? '-' }}</h5>
+          <h5 class="modal-title fw-bold">Edit Gaji — {{ editData.user_name ?? '-' }}</h5>
           <button type="button" class="btn-close" @click="editModal = false"></button>
         </div>
         <div class="modal-body">
@@ -172,7 +174,7 @@ const headers = () => ({
 export default defineComponent({
   name: 'SalarySettings',
   setup() {
-    const employees = ref<any[]>([])   // ← selalu array
+    const employees = ref<any[]>([])
     const loading   = ref(false)
     const saving    = ref(false)
     const search    = ref('')
@@ -182,11 +184,10 @@ export default defineComponent({
     const loadError = ref('')
     const saveError = ref('')
 
-    // ── filteredEmployees aman karena employees selalu array ──
     const filteredEmployees = computed(() =>
       employees.value.filter(e =>
-        (e.name ?? '').toLowerCase().includes(search.value.toLowerCase()) ||
-        (e.position ?? e.job_title ?? '').toLowerCase().includes(search.value.toLowerCase())
+        (e.user_name ?? '').toLowerCase().includes(search.value.toLowerCase()) ||
+        (e.position ?? '').toLowerCase().includes(search.value.toLowerCase())
       )
     )
 
@@ -195,7 +196,6 @@ export default defineComponent({
       loadError.value = ''
       try {
         const res = await axios.get(`${API}/admin/salary-settings`, { headers: headers() })
-        // ── Defensive guard: pastikan selalu array ──
         employees.value = Array.isArray(res.data?.data) ? res.data.data : []
       } catch (e: any) {
         loadError.value = e?.response?.data?.message ?? 'Gagal memuat data pegawai.'
@@ -208,10 +208,10 @@ export default defineComponent({
     const openEdit = (emp: any) => {
       editData.value = emp
       editForm.value = {
-        base_salary:        emp.salary?.base_salary        ?? 0,
-        position_allowance: emp.salary?.position_allowance ?? 0,
-        overtime_rate:      emp.salary?.overtime_rate      ?? 0,
-        late_rate:          emp.salary?.late_rate          ?? 0,
+        base_salary:        emp.base_salary        ?? 0,
+        position_allowance: emp.position_allowance ?? 0,
+        overtime_rate:      emp.overtime_rate      ?? 0,
+        late_rate:          emp.late_rate          ?? 0,
       }
       saveError.value = ''
       editModal.value = true
@@ -221,7 +221,12 @@ export default defineComponent({
       saving.value    = true
       saveError.value = ''
       try {
-        await axios.put(`${API}/admin/salary-settings/${editData.value.id}`, editForm.value, { headers: headers() })
+        // ✅ FIX: gunakan user_id bukan id
+        await axios.put(
+          `${API}/admin/salary-settings/${editData.value.user_id}`,
+          editForm.value,
+          { headers: headers() }
+        )
         editModal.value = false
         await load()
       } catch (e: any) {

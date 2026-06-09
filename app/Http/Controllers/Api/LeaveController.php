@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -7,6 +8,7 @@ use App\Models\User;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class LeaveController extends Controller
@@ -52,9 +54,15 @@ class LeaveController extends Controller
 
     public function myLeavesByFace($userId)
     {
-        $leaves = Leave::where('user_id', $userId)
-            ->orderBy('date', 'desc')->limit(20)->get()
-            ->map(fn($l) => $this->formatLeave($l));
+        // Cache 2 menit per user
+        $leaves = Cache::remember("face_leaves_{$userId}", 120, function () use ($userId) {
+            return Leave::where('user_id', $userId)
+                ->orderBy('date', 'desc')
+                ->limit(20)
+                ->get()
+                ->map(fn($l) => $this->formatLeave($l));
+        });
+
         return response()->json(['data' => $leaves]);
     }
 
@@ -66,20 +74,35 @@ class LeaveController extends Controller
             return response()->json(['message' => 'Tidak bisa hapus izin yang sudah lewat.'], 422);
         if ($leave->surat_dokter) Storage::disk('public')->delete($leave->surat_dokter);
         $leave->delete();
+
+        // Bust cache
+        $this->bustUserCache($request->user_id);
+
         return response()->json(['message' => 'Berhasil dibatalkan.']);
     }
 
     public function myLeaves()
     {
-        $leaves = Leave::where('user_id', Auth::id())
-            ->orderBy('date', 'desc')->get()
-            ->map(fn($l) => $this->formatLeave($l));
+        $userId        = Auth::id();
+        $cacheKey      = "my_leaves_{$userId}";
+        $cacheKeyKuota = "my_leaves_kuota_{$userId}_" . now()->format('Y_m');
 
-        $cutiBulanIni = Leave::where('user_id', Auth::id())
-            ->whereMonth('date', now()->month)
-            ->whereYear('date',  now()->year)
-            ->where('type', 'cuti')
-            ->count();
+        // Cache daftar leaves 2 menit
+        $leaves = Cache::remember($cacheKey, 120, function () use ($userId) {
+            return Leave::where('user_id', $userId)
+                ->orderBy('date', 'desc')
+                ->get()
+                ->map(fn($l) => $this->formatLeave($l));
+        });
+
+        // Cache kuota cuti 2 menit
+        $cutiBulanIni = Cache::remember($cacheKeyKuota, 120, function () use ($userId) {
+            return Leave::where('user_id', $userId)
+                ->whereMonth('date', now()->month)
+                ->whereYear('date',  now()->year)
+                ->where('type', 'cuti')
+                ->count();
+        });
 
         return response()->json([
             'data'          => $leaves,
@@ -97,6 +120,10 @@ class LeaveController extends Controller
             return response()->json(['message' => 'Tidak bisa hapus izin yang sudah lewat.'], 422);
         if ($leave->surat_dokter) Storage::disk('public')->delete($leave->surat_dokter);
         $leave->delete();
+
+        // Bust cache
+        $this->bustUserCache(Auth::id());
+
         return response()->json(['message' => 'Berhasil dibatalkan.']);
     }
 
@@ -104,7 +131,7 @@ class LeaveController extends Controller
     public function adminIndex(Request $request)
     {
         $query = Leave::with('user:id,name,job_title,avatar')->orderBy('date', 'desc');
-        if ($request->date)  $query->where('date',   $request->date);
+        if ($request->date)  $query->where('date', $request->date);
         if ($request->month && $request->year)
             $query->whereMonth('date', $request->month)->whereYear('date', $request->year);
         if ($request->type)   $query->where('type',   $request->type);
@@ -115,27 +142,34 @@ class LeaveController extends Controller
         $month = $request->month ?? now()->month;
         $year  = $request->year  ?? now()->year;
 
-        $kuotaPerUser = User::where('role', 'user')->get()->map(function ($user) use ($month, $year) {
-            $cutiTerpakai = Leave::where('user_id', $user->id)
-                ->whereMonth('date', $month)->whereYear('date', $year)
-                ->where('type', 'cuti')
-                ->count();
+        // ── OPTIMASI: ganti N+1 loop dengan 1 query aggregate ──────────────
+        $leaveStats = Leave::selectRaw('
+                user_id,
+                SUM(CASE WHEN type = "cuti" THEN 1 ELSE 0 END) as cuti_terpakai,
+                SUM(CASE WHEN type = "izin" AND status = "pending" THEN 1 ELSE 0 END) as izin_pending
+            ')
+            ->whereMonth('date', $month)
+            ->whereYear('date',  $year)
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
 
-            $izinPending = Leave::where('user_id', $user->id)
-                ->whereMonth('date', $month)->whereYear('date', $year)
-                ->where('type', 'izin')
-                ->where('status', 'pending')
-                ->count();
-
-            return [
-                'user_id'       => $user->id,
-                'name'          => $user->name,
-                'cuti_terpakai' => $cutiTerpakai,
-                'sisa_cuti'     => max(0, self::MAX_CUTI_PER_BULAN - $cutiTerpakai),
-                'kuota'         => self::MAX_CUTI_PER_BULAN,
-                'izin_pending'  => $izinPending,
-            ];
-        });
+        // Load semua user sekaligus — 1 query
+        $kuotaPerUser = User::where('role', 'user')
+            ->select('id', 'name')
+            ->get()
+            ->map(function ($user) use ($leaveStats) {
+                $stat         = $leaveStats->get($user->id);
+                $cutiTerpakai = (int) ($stat->cuti_terpakai ?? 0);
+                return [
+                    'user_id'       => $user->id,
+                    'name'          => $user->name,
+                    'cuti_terpakai' => $cutiTerpakai,
+                    'sisa_cuti'     => max(0, self::MAX_CUTI_PER_BULAN - $cutiTerpakai),
+                    'kuota'         => self::MAX_CUTI_PER_BULAN,
+                    'izin_pending'  => (int) ($stat->izin_pending ?? 0),
+                ];
+            });
 
         return response()->json([
             'data'           => $leaves,
@@ -183,6 +217,9 @@ class LeaveController extends Controller
                        . ($request->admin_note ? " Catatan: {$request->admin_note}" : ''),
             'type'    => $notifType,
         ]);
+
+        // Bust cache user yang bersangkutan
+        $this->bustUserCache($leave->user_id);
 
         return response()->json([
             'message' => "Izin berhasil {$statusLabel}.",
@@ -287,11 +324,22 @@ class LeaveController extends Controller
             'type'    => $needsApproval ? 'info' : 'success',
         ]);
 
+        // Bust cache setelah buat leave baru
+        $this->bustUserCache($user->id);
+
         return response()->json([
             'message' => $needsApproval
                 ? 'Pengajuan izin berhasil dikirim. Menunggu persetujuan admin.'
                 : ucfirst($typeLabel) . ' berhasil dicatat.',
             'data'    => $this->formatLeave($leave),
         ], 201);
+    }
+
+    // ── Helper: hapus semua cache user ────────────────────────────────────
+    private function bustUserCache(int $userId): void
+    {
+        Cache::forget("my_leaves_{$userId}");
+        Cache::forget("face_leaves_{$userId}");
+        Cache::forget("my_leaves_kuota_{$userId}_" . now()->format('Y_m'));
     }
 }

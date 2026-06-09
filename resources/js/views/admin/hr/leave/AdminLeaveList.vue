@@ -28,12 +28,8 @@
         </button>
         <Teleport to="body">
           <div v-if="showMonthDropdown" class="lv-dropdown-menu" :style="{ top: monthMenuPos.top, left: monthMenuPos.left }">
-            <button
-              v-for="m in months" :key="m.value"
-              class="lv-dropdown-item"
-              :class="{ active: filter.month === m.value }"
-              @click="filter.month = m.value; showMonthDropdown = false; fetchLeaves()"
-            >
+            <button v-for="m in months" :key="m.value" class="lv-dropdown-item" :class="{ active: filter.month === m.value }"
+              @click="filter.month = m.value; showMonthDropdown = false; resetAndFetch()">
               {{ m.label }}
               <svg v-if="filter.month === m.value" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </button>
@@ -49,12 +45,8 @@
         </button>
         <Teleport to="body">
           <div v-if="showYearDropdown" class="lv-dropdown-menu lv-dropdown-menu-sm" :style="{ top: yearMenuPos.top, left: yearMenuPos.left }">
-            <button
-              v-for="y in years" :key="y"
-              class="lv-dropdown-item"
-              :class="{ active: filter.year === y }"
-              @click="filter.year = y; showYearDropdown = false; fetchLeaves()"
-            >
+            <button v-for="y in years" :key="y" class="lv-dropdown-item" :class="{ active: filter.year === y }"
+              @click="filter.year = y; showYearDropdown = false; resetAndFetch()">
               {{ y }}
               <svg v-if="filter.year === y" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </button>
@@ -66,7 +58,7 @@
       <div class="lv-filter-tabs">
         <button v-for="tab in typeTabs" :key="tab.value"
           :class="['lv-tab', filter.type === tab.value && 'lv-tab-active']"
-          @click="filter.type = tab.value; fetchLeaves()">
+          @click="setFilterType(tab.value)">
           {{ tab.label }}
         </button>
       </div>
@@ -74,11 +66,11 @@
       <div class="lv-filter-tabs">
         <button v-for="tab in statusTabs" :key="tab.value"
           :class="['lv-tab', filter.status === tab.value && `lv-tab-active lv-tab-status-${tab.value}`]"
-          @click="filter.status = tab.value; fetchLeaves()">
+          @click="setFilterStatus(tab.value)">
           {{ tab.label }}
         </button>
       </div>
-      <button @click="fetchLeaves" class="lv-refresh-btn" title="Refresh">
+      <button @click="resetAndFetch" class="lv-refresh-btn" title="Refresh">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
       </button>
     </div>
@@ -143,7 +135,7 @@
             <span class="lv-legend-item lv-legend-auto">Cuti/Sakit = otomatis</span>
             <span class="lv-legend-item lv-legend-manual">Izin = perlu approval</span>
           </div>
-          <div class="lv-badge">{{ leaves.length }} entri</div>
+          <div class="lv-badge">{{ totalData }} entri</div>
         </div>
       </div>
 
@@ -173,10 +165,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(lv, i) in leaves" :key="lv.id"
-              class="lv-row"
-              :class="lv.status === 'pending' ? 'lv-row-pending' : ''">
-              <td class="lv-td-num">{{ i + 1 }}</td>
+            <tr v-for="(lv, i) in leaves" :key="lv.id" class="lv-row" :class="lv.status === 'pending' ? 'lv-row-pending' : ''">
+              <td class="lv-td-num">{{ (currentPage - 1) * perPage + i + 1 }}</td>
               <td>
                 <div class="lv-cell-user">
                   <div class="lv-cell-av" :style="`background:${avatarColor(lv.user?.name ?? '')}`">
@@ -246,6 +236,28 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- ── PAGINATION ── -->
+        <div v-if="lastPage > 1" class="lv-pagination">
+          <button class="lv-page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Prev
+          </button>
+          <div class="lv-page-numbers">
+            <button
+              v-for="p in pageNumbers" :key="p"
+              class="lv-page-num"
+              :class="{ active: p === currentPage, dots: p === '...' }"
+              :disabled="p === '...'"
+              @click="p !== '...' && goToPage(p as number)"
+            >{{ p }}</button>
+          </div>
+          <button class="lv-page-btn" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">
+            Next
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <span class="lv-page-info">{{ totalData }} entri · hal {{ currentPage }}/{{ lastPage }}</span>
+        </div>
       </div>
     </div>
 
@@ -292,7 +304,7 @@
       </div>
     </Teleport>
 
-    <!-- ── MODAL: Approve / Reject IZIN ── -->
+    <!-- ── MODAL: Approve / Reject ── -->
     <Teleport to="body">
       <div v-if="approvalModal.show" class="lv-overlay" @click.self="closeApproval">
         <div class="lv-modal lv-modal-sm">
@@ -324,12 +336,9 @@
             </div>
             <div>
               <label class="lv-field-lbl">Catatan Admin <span class="lv-field-opt">(opsional)</span></label>
-              <textarea
-                v-model="approvalModal.note"
-                class="lv-textarea"
+              <textarea v-model="approvalModal.note" class="lv-textarea"
                 :placeholder="approvalModal.action === 'approved' ? 'Misal: Disetujui, harap segera kembali.' : 'Misal: Alasan tidak mencukupi.'"
-                rows="3"
-              ></textarea>
+                rows="3"></textarea>
             </div>
           </div>
           <div class="lv-modal-foot">
@@ -364,7 +373,40 @@ export default defineComponent({
     const loading      = ref(false)
     const imgError     = ref(false)
 
-    // ── Dropdown state ─────────────────────────────────────────────────────
+    // ── Pagination ──────────────────────────────────────────────────────────
+    const currentPage = ref(1)
+    const lastPage    = ref(1)
+    const totalData   = ref(0)
+    const perPage     = 25
+
+    const pageNumbers = computed(() => {
+      const pages: (number | string)[] = []
+      const total = lastPage.value
+      const cur   = currentPage.value
+      if (total <= 7) {
+        for (let i = 1; i <= total; i++) pages.push(i)
+      } else {
+        pages.push(1)
+        if (cur > 3) pages.push('...')
+        for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i)
+        if (cur < total - 2) pages.push('...')
+        pages.push(total)
+      }
+      return pages
+    })
+
+    const goToPage = (page: number) => {
+      if (page < 1 || page > lastPage.value) return
+      currentPage.value = page
+      fetchLeaves()
+    }
+
+    const resetAndFetch = () => {
+      currentPage.value = 1
+      fetchLeaves()
+    }
+
+    // ── Dropdown state ──────────────────────────────────────────────────────
     const showMonthDropdown = ref(false)
     const showYearDropdown  = ref(false)
     const monthDropdownRef  = ref<HTMLElement | null>(null)
@@ -375,33 +417,26 @@ export default defineComponent({
     const openMonthDropdown = () => {
       if (monthDropdownRef.value) {
         const rect = monthDropdownRef.value.getBoundingClientRect()
-        monthMenuPos.value = {
-          top:  (rect.bottom + 6) + 'px',
-          left: rect.left + 'px',
-        }
+        monthMenuPos.value = { top: (rect.bottom + 6) + 'px', left: rect.left + 'px' }
       }
       showMonthDropdown.value = !showMonthDropdown.value
       showYearDropdown.value  = false
     }
-
     const openYearDropdown = () => {
       if (yearDropdownRef.value) {
         const rect = yearDropdownRef.value.getBoundingClientRect()
-        yearMenuPos.value = {
-          top:  (rect.bottom + 6) + 'px',
-          left: rect.left + 'px',
-        }
+        yearMenuPos.value = { top: (rect.bottom + 6) + 'px', left: rect.left + 'px' }
       }
       showYearDropdown.value  = !showYearDropdown.value
       showMonthDropdown.value = false
     }
-
     const handleClickOutside = (e: MouseEvent) => {
-      if (monthDropdownRef.value && !monthDropdownRef.value.contains(e.target as Node))
-        showMonthDropdown.value = false
-      if (yearDropdownRef.value && !yearDropdownRef.value.contains(e.target as Node))
-        showYearDropdown.value = false
+      if (monthDropdownRef.value && !monthDropdownRef.value.contains(e.target as Node)) showMonthDropdown.value = false
+      if (yearDropdownRef.value  && !yearDropdownRef.value.contains(e.target as Node))  showYearDropdown.value  = false
     }
+
+    const setFilterType   = (val: string) => { filter.value.type   = val; resetAndFetch() }
+    const setFilterStatus = (val: string) => { filter.value.status = val; resetAndFetch() }
 
     // ── Modals ──────────────────────────────────────────────────────────────
     const docModal      = ref<{ show: boolean; leave: any }>({ show: false, leave: null })
@@ -434,7 +469,7 @@ export default defineComponent({
       }
     }
 
-    // ── Data ────────────────────────────────────────────────────────────────
+    // ── Data ─────────────────────────────────────────────────────────────────
     const months = [
       {value:1,label:'Januari'},{value:2,label:'Februari'},{value:3,label:'Maret'},
       {value:4,label:'April'},{value:5,label:'Mei'},{value:6,label:'Juni'},
@@ -453,8 +488,7 @@ export default defineComponent({
 
     const typeLabel   = (t: string) => ({ sakit:'Sakit', izin:'Izin', cuti:'Cuti' }[t] ?? t)
     const statusLabel = (s: string) => ({ pending:'Menunggu', approved:'Disetujui', rejected:'Ditolak' }[s] ?? s)
-
-    const typeIcon = (t: string) => ({
+    const typeIcon    = (t: string) => ({
       sakit:`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
       izin: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
       cuti: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
@@ -464,9 +498,9 @@ export default defineComponent({
     const countPending = computed(() => leaves.value.filter(l => l.type === 'izin' && l.status === 'pending').length)
 
     const statCards = computed(() => {
-      const total = leaves.value.length || 1
+      const total = totalData.value || 1
       return [
-        { key:'total',   label:'Total',         value:leaves.value.length, pct:100, color:'#1b84ff',
+        { key:'total',   label:'Total',         value:totalData.value, pct:100, color:'#1b84ff',
           icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>` },
         { key:'sakit',   label:'Sakit',         value:countType('sakit'), pct:Math.round(countType('sakit')/total*100), color:'#f1416c',
           icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>` },
@@ -483,21 +517,43 @@ export default defineComponent({
     })
 
     const AVATAR_PALETTE = ['#1b84ff','#7239ea','#f1416c','#ffc700','#50cd89','#00b2ff','#fd7e14']
-    const avatarColor = (name: string) => AVATAR_PALETTE[(name.charCodeAt(0) || 0) % AVATAR_PALETTE.length]
+    const avatarColor    = (name: string) => AVATAR_PALETTE[(name.charCodeAt(0) || 0) % AVATAR_PALETTE.length]
 
-    const formatDateShort = (d: string) => d ? new Date(d).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' }) : '—'
-    const formatDay       = (d: string) => d ? new Date(d).toLocaleDateString('id-ID', { weekday:'long' }) : ''
+    const formatDateShort = (d: string) => {
+      if (!d) return '—'
+      try {
+        const date = new Date(d.substring(0, 10) + 'T00:00:00')
+        return isNaN(date.getTime()) ? d : date.toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' })
+      } catch { return d }
+    }
+    const formatDay = (d: string) => {
+      if (!d) return ''
+      try {
+        const date = new Date(d.substring(0, 10) + 'T00:00:00')
+        return isNaN(date.getTime()) ? '' : date.toLocaleDateString('id-ID', { weekday:'long' })
+      } catch { return '' }
+    }
 
+    // ── Fetch dengan pagination ──────────────────────────────────────────────
     const fetchLeaves = async () => {
       loading.value = true
       try {
         ApiService.setHeader()
-        let url = `admin/leaves?month=${filter.value.month}&year=${filter.value.year}`
+        let url = `admin/leaves?month=${filter.value.month}&year=${filter.value.year}&page=${currentPage.value}&per_page=${perPage}`
         if (filter.value.type)   url += `&type=${filter.value.type}`
         if (filter.value.status) url += `&status=${filter.value.status}`
         const { data } = await ApiService.get(url)
         leaves.value       = data.data          ?? []
         kuotaPerUser.value = data.kuota_per_user ?? []
+        // Support pagination dari backend (jika pakai paginate())
+        if (data.meta) {
+          lastPage.value  = data.meta.last_page ?? 1
+          totalData.value = data.meta.total     ?? leaves.value.length
+        } else {
+          // Fallback jika backend belum pakai paginate
+          lastPage.value  = 1
+          totalData.value = leaves.value.length
+        }
       } catch (_) {
         leaves.value = []; kuotaPerUser.value = []
       } finally {
@@ -509,7 +565,6 @@ export default defineComponent({
       fetchLeaves()
       document.addEventListener('click', handleClickOutside)
     })
-
     onUnmounted(() => {
       document.removeEventListener('click', handleClickOutside)
     })
@@ -518,7 +573,9 @@ export default defineComponent({
       filter, leaves, kuotaPerUser, loading, imgError,
       months, years, typeTabs, statusTabs,
       typeLabel, statusLabel, typeIcon, countType, countPending, statCards, avatarColor,
-      formatDateShort, formatDay, fetchLeaves,
+      formatDateShort, formatDay, fetchLeaves, resetAndFetch,
+      setFilterType, setFilterStatus,
+      currentPage, lastPage, totalData, perPage, pageNumbers, goToPage,
       showMonthDropdown, showYearDropdown, monthDropdownRef, yearDropdownRef,
       monthMenuPos, yearMenuPos, openMonthDropdown, openYearDropdown,
       docModal, docUrl, docFilename, docIsPdf, openDoc, closeDoc,
@@ -634,6 +691,19 @@ export default defineComponent({
 .lv-empty { text-align:center; padding:44px 20px; }
 .lv-empty-icon { width:56px; height:56px; border-radius:14px; background:var(--kt-gray-200); display:flex; align-items:center; justify-content:center; color:var(--kt-text-muted); margin:0 auto 12px; }
 .lv-empty p { font-size:13px; color:var(--kt-text-muted); margin:0; }
+
+/* ── PAGINATION ── */
+.lv-pagination { display:flex; align-items:center; justify-content:center; gap:8px; padding:18px 0 4px; flex-wrap:wrap; }
+.lv-page-btn { display:inline-flex; align-items:center; gap:5px; background:var(--kt-gray-100); border:1px solid var(--kt-border-color); color:var(--kt-text-dark); border-radius:9px; padding:7px 14px; font-size:12.5px; font-weight:600; cursor:pointer; transition:all 0.14s; }
+.lv-page-btn:hover:not(:disabled) { border-color:rgba(27,132,255,0.4); color:#1b84ff; }
+.lv-page-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.lv-page-numbers { display:flex; gap:4px; }
+.lv-page-num { width:34px; height:34px; border-radius:8px; background:transparent; border:1px solid transparent; color:var(--kt-text-muted); font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.14s; }
+.lv-page-num:hover:not(:disabled):not(.dots) { background:var(--kt-gray-100); color:var(--kt-text-dark); }
+.lv-page-num.active { background:rgba(27,132,255,0.12); border-color:rgba(27,132,255,0.3); color:#1b84ff; font-weight:800; }
+.lv-page-num.dots { cursor:default; }
+.lv-page-info { font-size:11.5px; color:var(--kt-text-muted); margin-left:4px; }
+
 .lv-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.72); backdrop-filter:blur(8px); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; animation:lv-fade 0.2s ease; }
 @keyframes lv-fade { from{opacity:0} to{opacity:1} }
 .lv-modal { background:var(--kt-card-bg); border:1px solid var(--kt-border-color); border-radius:20px; width:100%; max-width:540px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.55); animation:lv-slideup 0.25s ease; }
@@ -682,10 +752,10 @@ export default defineComponent({
   .lv-header{flex-direction:column;align-items:flex-start}
   .lv-overlay{align-items:flex-end;padding:0}
   .lv-modal{border-radius:20px 20px 0 0;max-width:100%}
+  .lv-pagination{gap:6px}
 }
 </style>
 
-<!-- Dropdown styles HARUS global karena pakai Teleport to="body" -->
 <style>
 .lv-dropdown-menu {
   position: fixed;
@@ -701,38 +771,17 @@ export default defineComponent({
   gap: 3px;
   animation: lv-dropdown-in 0.15s ease;
 }
-.lv-dropdown-menu-sm {
-  grid-template-columns: 1fr;
-  min-width: 110px;
-}
+.lv-dropdown-menu-sm { grid-template-columns: 1fr; min-width: 110px; }
 .lv-dropdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: transparent; border: none; border-radius: 8px;
   color: var(--kt-text-muted, #9899ac);
-  font-size: 13px;
-  font-weight: 500;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: all 0.12s;
-  text-align: left;
-  white-space: nowrap;
-  font-family: inherit;
-  width: 100%;
+  font-size: 13px; font-weight: 500; padding: 8px 12px;
+  cursor: pointer; transition: all 0.12s; text-align: left;
+  white-space: nowrap; font-family: inherit; width: 100%;
 }
-.lv-dropdown-item:hover {
-  background: var(--kt-gray-100, rgba(255,255,255,0.06));
-  color: var(--kt-text-dark, #f0f0f5);
-}
-.lv-dropdown-item.active {
-  background: rgba(27,132,255,0.12);
-  color: #1b84ff;
-  font-weight: 700;
-}
+.lv-dropdown-item:hover { background: var(--kt-gray-100, rgba(255,255,255,0.06)); color: var(--kt-text-dark, #f0f0f5); }
+.lv-dropdown-item.active { background: rgba(27,132,255,0.12); color: #1b84ff; font-weight: 700; }
 @keyframes lv-dropdown-in {
   from { opacity: 0; transform: translateY(-8px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }

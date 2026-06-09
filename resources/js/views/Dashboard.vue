@@ -130,7 +130,7 @@
           <svg viewBox="0 0 120 120" class="hr-donut-svg">
             <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="14"/>
             <circle cx="60" cy="60" r="48" fill="none"
-              :stroke="'#17c653'"
+              stroke="#17c653"
               stroke-width="14"
               stroke-linecap="round"
               :stroke-dasharray="`${donutHadir} ${301.6 - donutHadir}`"
@@ -138,7 +138,7 @@
               style="transition:stroke-dasharray 1s ease"
             />
             <circle cx="60" cy="60" r="48" fill="none"
-              :stroke="'#ffa500'"
+              stroke="#ffa500"
               stroke-width="14"
               stroke-linecap="round"
               :stroke-dasharray="`${donutLate} ${301.6 - donutLate}`"
@@ -279,38 +279,33 @@ export default defineComponent({
       { key: 'absent',  label: 'Absen' },
     ]
 
-    const now = new Date()
+    const now        = new Date()
     const todayLabel = computed(() => now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
     const todayShort = computed(() => now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }))
     const barColors  = ['#1b84ff', '#17c653', '#ffa500', '#e8262a', '#a855f7']
 
-    // ── TOKEN — ambil dari authStore, fallback ke localStorage
-    const getToken = () => {
-      return authStore.user?.api_token
-        || (authStore as any).token
-        || localStorage.getItem('api_token')
-        || localStorage.getItem('id_token')
-        || ''
-    }
+    // ── TOKEN ────────────────────────────────────────────────────────────────
+    const getToken = () =>
+      authStore.user?.api_token
+      || (authStore as any).token
+      || localStorage.getItem('api_token')
+      || localStorage.getItem('id_token')
+      || ''
 
-    // ── HTTP client dengan token yang benar
-    const http = () => {
-      const token = getToken()
-      return axios.create({
-        baseURL: API_BASE,
-        headers: { Authorization: `Bearer ${token}` },
-      })
-    }
+    const http = () => axios.create({
+      baseURL: API_BASE,
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
 
-    // ── COMPUTED ──
+    // ── COMPUTED ──────────────────────────────────────────────────────────────
     const presentToday   = computed(() => todayAttendance.value.filter(a => a.check_in_time).length)
     const lateToday      = computed(() => todayAttendance.value.filter(a => a.status === 'late').length)
     const onTimeToday    = computed(() => todayAttendance.value.filter(a => a.check_in_time && a.status !== 'late').length)
     const absentToday    = computed(() => todayAttendance.value.filter(a => !a.check_in_time).length)
     const totalEmployees = computed(() => todayAttendance.value.length)
 
-    const donutHadir = computed(() => totalEmployees.value ? Math.round((presentToday.value / totalEmployees.value) * 301.6) : 0)
-    const donutLate  = computed(() => totalEmployees.value ? Math.round((lateToday.value  / totalEmployees.value) * 301.6) : 0)
+    const donutHadir = computed(() => totalEmployees.value ? Math.round((presentToday.value  / totalEmployees.value) * 301.6) : 0)
+    const donutLate  = computed(() => totalEmployees.value ? Math.round((lateToday.value     / totalEmployees.value) * 301.6) : 0)
 
     const filteredAttendance = computed(() => {
       if (activeFilter.value === 'all')     return todayAttendance.value
@@ -374,21 +369,32 @@ export default defineComponent({
       { to: '/hr/attendance/today',   label: 'Live',     bg: 'rgba(232,38,42,0.10)',  icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e8262a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
     ]
 
-    // ── HELPERS ──
+    // ── HELPERS ──────────────────────────────────────────────────────────────
+    // ✅ FIX: deteksi format HH:mm:ss dari API, hindari Invalid Date
     const formatTime = (t: string) => {
       if (!t) return '—'
-      return new Date(t).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      if (/^\d{2}:\d{2}/.test(t)) return t.substring(0, 5)
+      const d = new Date(t)
+      if (isNaN(d.getTime())) return '—'
+      return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
     }
-    const formatDate = (d: string) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+
+    const formatDate = (d: string) => {
+      if (!d) return '—'
+      const date = new Date(d)
+      if (isNaN(date.getTime())) return '—'
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+    }
 
     const getAttStatus = (att: any) => {
-      if (!att.check_in_time) return 'absent'
+      if (!att.check_in_time)  return 'absent'
       if (att.status === 'late') return 'late'
       if (!att.check_out_time) return 'present'
       return 'done'
     }
+
     const getAttLabel = (att: any) => {
-      if (!att.check_in_time) return 'Absen'
+      if (!att.check_in_time)  return 'Absen'
       if (att.status === 'late') return 'Terlambat'
       if (!att.check_out_time) return 'Hadir'
       return 'Selesai'
@@ -401,7 +407,7 @@ export default defineComponent({
       cuti:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1b84ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
     }[t] ?? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`)
 
-    // ── LOAD DATA ──
+    // ── LOAD DATA ─────────────────────────────────────────────────────────────
     const loadAll = async () => {
       refreshing.value = true
       loadError.value  = ''
@@ -419,7 +425,6 @@ export default defineComponent({
         if (leavesRes.status  === 'fulfilled') leaves.value          = leavesRes.value.data?.data  ?? []
         if (monthlyRes.status === 'fulfilled') monthlyData.value     = monthlyRes.value.data?.data ?? []
 
-        // Debug: log token jika data kosong
         if (todayAttendance.value.length === 0) {
           const token = getToken()
           console.warn('[Dashboard] Data kosong. Token:', token ? token.slice(0, 10) + '...' : 'TIDAK ADA TOKEN')
@@ -440,7 +445,7 @@ export default defineComponent({
       }
     }
 
-    // ── LIVE CLOCK ──
+    // ── LIVE CLOCK ────────────────────────────────────────────────────────────
     let clockInterval: number | null = null
     const tickClock = () => {
       liveTime.value = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
